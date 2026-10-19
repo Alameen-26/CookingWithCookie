@@ -214,6 +214,14 @@ nav a:hover {
 #chat-form .button {
     margin-top: 0;
 }
+#chat-form .button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+.bot-message.typing {
+    color: var(--grey);
+    font-style: italic;
+}
 .visually-hidden {
     position: absolute;
     width: 1px;

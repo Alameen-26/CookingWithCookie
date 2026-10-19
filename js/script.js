@@ -71,10 +71,16 @@ if (window.location.protocol.startsWith("http")) {
             console.info("Using the built-in menu prices.", error);
         });
 }
-// PART 2: DEMONSTRATION CHAT ASSISTANT
+// PART 2: ASK COOKIE CHAT ASSISTANT
+// Messages go to the backend (/api/chat), which answers with AI or with
+// its own rule-based replies. If the backend can't be reached (for example,
+// the page was opened directly as a file), the local replies below are used.
 const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
 const chatMessages = document.querySelector("#chat-messages");
+const chatButton = chatForm.querySelector("button");
+const UNCONFIRMED_NOTE =
+    "Calorie and allergen details haven't been confirmed yet. Please contact Cooking with Cookie before ordering, especially if you have a severe allergy, as cross-contamination is possible.";
 function addMessage(message, sender) {
     const paragraph = document.createElement("p");
     paragraph.className =
@@ -83,9 +89,13 @@ function addMessage(message, sender) {
     paragraph.textContent = message;
     chatMessages.appendChild(paragraph);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    return paragraph;
 }
 function getCookieReply(message) {
     const text = message.toLowerCase();
+    if (/allerg|gluten|\bnuts?\b|peanut|dairy|milk|\beggs?\b|soy|sesame|wheat|calorie|nutrition/.test(text)) {
+        return UNCONFIRMED_NOTE;
+    }
     if (text.includes("jollof")) {
         return "Our proposed Jollof Rice Plate is $18 and includes chicken, plantain and salad.";
     }
@@ -93,7 +103,7 @@ function getCookieReply(message) {
         return "Our proposed Fried Rice Plate is $18 and includes chicken, plantain and salad.";
     }
     if (text.includes("shawarma")) {
-        return "Our proposed Chicken Shawarma is $15, and Beef Shawarma is $18.";
+        return "Our proposed Chicken Shawarma is $15 and is a chicken wrap with vegetables and sauce.";
     }
     if (text.includes("bulk") || text.includes("party")) {
         return "We can discuss catering for groups. Tell us how many people you are feeding and your preferred meals.";
@@ -105,17 +115,49 @@ function getCookieReply(message) {
     if (/\b(hello|hi|hey)\b/.test(text)) {
         return "Hello! Welcome to Cooking with Cookie. What kind of meal are you looking for?";
     }
-    return "I'd be happy to help with your meal choices. Try asking about Jollof, fried rice, shawarma, prices or bulk orders.";
+    return "I'd be happy to help with your meal choices. Try asking about Jollof, fried rice, shawarma, prices, calories, allergens or bulk orders.";
 }
-chatForm.addEventListener("submit", function (event) {
+async function askServer(message) {
+    if (!window.location.protocol.startsWith("http")) {
+        return getCookieReply(message);
+    }
+    try {
+        const response = await fetch("/api/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: message })
+        });
+        const data = await response.json();
+        if (response.ok && typeof data.reply === "string") {
+            return data.reply;
+        }
+        // Rate limit or validation message from the server.
+        if ((response.status === 429 || response.status === 400) && data.error) {
+            return data.error;
+        }
+    } catch (error) {
+        console.info("Chat server unavailable, using local replies.", error);
+    }
+    return getCookieReply(message);
+}
+function setWaiting(isWaiting) {
+    chatButton.disabled = isWaiting;
+    chatButton.textContent = isWaiting ? "Sending…" : "Send";
+}
+chatForm.addEventListener("submit", async function (event) {
     event.preventDefault();
     const message = chatInput.value.trim();
-    if (message === "") {
+    if (message === "" || chatButton.disabled) {
         return;
     }
     addMessage(message, "user");
-    const reply = getCookieReply(message);
-    addMessage(reply, "bot");
     chatInput.value = "";
+    setWaiting(true);
+    const typing = addMessage("Cookie is typing…", "bot");
+    typing.classList.add("typing");
+    const reply = await askServer(message);
+    typing.remove();
+    addMessage(reply, "bot");
+    setWaiting(false);
     chatInput.focus();
 });
