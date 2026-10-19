@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cooking with Cookie | Nigerian Food, Your Way</title>
+    <meta name="description" content="Explore Nigerian meals, customize your order, and plan food for your next event.">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="js/script.js" defer></script>
+</head>
+<body>
+    <header class="site-header">
+        <a class="logo" href="#home">COOKING WITH COOKIE</a>
+        <nav aria-label="Main navigation">
+            <a href="#home">Home</a>
+            <a href="#menu">Menu</a>
+            <a href="#bulk-orders">Bulk Orders</a>
+            <a href="#assistant">Ask Cookie</a>
+        </nav>
+    </header>
+    <main>
+        <section class="hero" id="home">
+            <p class="eyebrow">NIGERIAN FOOD · YOUR WAY</p>
+            <h1>Good food.<br>Thoughtfully made.</h1>
+            <p>
+                Discover Nigerian favourites, customize your meal,
+                and let Cookie take care of the rest.
+            </p>
+            <a class="button" href="#menu">Explore Our Menu</a>
+        </section>
+        <section class="menu-section" id="menu">
+            <p class="eyebrow">MADE WITH CARE</p>
+            <h2>Our Menu</h2>
+            <p class="section-description">
+                Nigerian favourites prepared with flavour and care.
+                All prices are in Canadian dollars (CAD).
+            </p>
+            <div class="menu-grid">
+                <article class="meal-card">
+                    <img
+                        src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&amp;fit=crop&amp;w=800&amp;q=80"
+                        alt="A prepared meal with rice and vegetables"
+                    >
+                    <div class="meal-info">
+                        <h3>Jollof Rice Plate</h3>
+                        <p>Jollof rice, chicken, plantain and salad.</p>
+                        <p class="price">$18.00</p>
+                        <label for="jollof-quantity">Quantity</label>
+                        <input
+                            id="jollof-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                            data-price="18"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&amp;fit=crop&amp;w=800&amp;q=80"
+                        alt="A colourful plate of food"
+                    >
+                    <div class="meal-info">
+                        <h3>Fried Rice Plate</h3>
+                        <p>Fried rice, chicken, plantain and salad.</p>
+                        <p class="price">$18.00</p>
+                        <label for="fried-rice-quantity">Quantity</label>
+                        <input
+                            id="fried-rice-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                            data-price="18"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&amp;fit=crop&amp;w=800&amp;q=80"
+                        alt="Prepared grilled food"
+                    >
+                    <div class="meal-info">
+                        <h3>Chicken Shawarma</h3>
+                        <p>A savoury chicken wrap with vegetables and sauce.</p>
+                        <p class="price">$15.00</p>
+                        <label for="shawarma-quantity">Quantity</label>
+                        <input
+                            id="shawarma-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                            data-price="15"
+                        >
+                    </div>
+                </article>
+            </div>
+            <div class="order-summary">
+                <h3>Your order estimate</h3>
+                <p>Selected items: <span id="item-count">0</span></p>
+                <p class="total">
+                    Estimated total: <span id="order-total">$0.00</span>
+                </p>
+                <p class="small-note">
+                    Demonstration only. No order has been placed.
+                </p>
+            </div>
+        </section>
+        <section class="bulk-section" id="bulk-orders">
+            <p class="eyebrow">FOR YOUR GATHERINGS</p>
+            <h2>Feeding a crowd?</h2>
+            <p>
+                Planning a party or event? Tell us how many people
+                you're feeding and what you'd like to serve.
+            </p>
+            <a class="button" href="mailto:orders@example.com?subject=Bulk%20Order%20Enquiry">
+                Enquire About Bulk Orders
+            </a>
+            <p class="small-note">
+                Replace this example email address with your business email.
+            </p>
+        </section>
+        <section class="assistant-section" id="assistant">
+            <p class="eyebrow">HERE TO HELP</p>
+            <h2>Ask Cookie</h2>
+            <p>
+                Need help choosing a meal? Ask our demonstration assistant.
+            </p>
+            <div class="chat-box">
+                <div
+                    id="chat-messages"
+                    class="chat-messages"
+                    role="log"
+                    aria-live="polite"
+                    aria-label="Chat conversation"
+                >
+                    <p class="bot-message">
+                        Hi! I'm Cookie's demo assistant.
+                        Ask me about our menu.
+                    </p>
+                </div>
+                <form id="chat-form">
+                    <label class="visually-hidden" for="chat-input">
+                        Your message
+                    </label>
+                    <input
+                        id="chat-input"
+                        type="text"
+                        placeholder="What would you like to eat?"
+                        required
+                        maxlength="500"
+                    >
+                    <button class="button" type="submit">Send</button>
+                </form>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 Cooking with Cookie. All rights reserved.</p>
+        <p>Nigerian food, your way.</p>
+    </footer>
+</body>
+</html>
