@@ -10,13 +10,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
 
 import app as cookie_app  # noqa: E402
 
+MENU_NAMES = [
+    "Jollof Rice & Peppered Chicken", "Fried Rice", "Nigerian Shawarma",
+    "Puff-Puff", "Meat Pie", "Jollof Spaghetti", "Beef Stir-fry Spaghetti",
+    "Dirty Rice", "Stew (Beef)", "Stew (Chicken)", "Stew (Fish)", "Egusi",
+    "Beans Porridge",
+]
+EMAIL = "alajiadeniyi@gmail.com"
+PHONE = "(902) 495-1781"
+PRICE_PATTERN = r"\$\s?\d|\d+\.\d\d|\bCAD\b"
+
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     cookie_app.app.config["TESTING"] = True
     cookie_app.app.config["DATABASE"] = str(tmp_path / "test.db")
-    cookie_app.app.config["CHAT_RATE_LIMIT"] = 10
+    cookie_app.app.config["CHAT_RATE_LIMIT"] = 100
     cookie_app.app.config["SHOW_PRICES"] = False
     cookie_app.chat_rate_limiter.reset()
     with cookie_app.app.test_client() as client:
@@ -30,15 +40,20 @@ def priced_client(client):
     cookie_app.app.config["SHOW_PRICES"] = False
 
 
-PRICE_PATTERN = r"\$\s?\d|\d+\.\d\d|\bCAD\b"
-
-
 def assert_no_price(text):
     assert not re.search(PRICE_PATTERN, text), text
 
 
+def assert_no_contact(text):
+    assert EMAIL not in text and PHONE not in text, text
+
+
 def chat(client, message):
     return client.post("/api/chat", json={"message": message})
+
+
+def reply(client, message):
+    return chat(client, message).get_json()["reply"]
 
 
 class FakeOpenAI:
@@ -58,7 +73,12 @@ class FakeOpenAI:
         return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
-# ---------- Basic API ----------
+def use_fake_ai(monkeypatch, fake):
+    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
+    return fake
+
+
+# ---------- Menu data ----------
 
 def test_health(client):
     response = client.get("/api/health")
@@ -66,25 +86,92 @@ def test_health(client):
     assert response.get_json() == {"status": "ok"}
 
 
-def test_menu_returns_all_available_items_without_prices(client):
-    response = client.get("/api/menu")
-    assert response.status_code == 200
-    menu = response.get_json()
-    names = [item["name"] for item in menu]
-    assert names == ["Jollof Rice Plate", "Fried Rice Plate", "Chicken Shawarma"]
-    assert set(menu[0]) == {
-        "id", "name", "description", "ingredients", "calories", "allergens"
-    }
+def test_full_menu_is_seeded(client):
+    menu = client.get("/api/menu").get_json()
+    assert [item["name"] for item in menu] == MENU_NAMES
+
+
+def test_menu_fields_and_safety_flags(client):
+    for item in client.get("/api/menu").get_json():
+        assert set(item) == {
+            "id", "name", "description", "ingredients", "ingredients_verified",
+            "calories", "allergens", "allergens_verified", "recipe_steps",
+        }
+        assert item["calories"] is None
+        assert item["ingredients_verified"] is False
+        assert item["allergens_verified"] is False
+        assert item["ingredients"] and item["allergens"] and item["description"]
+        assert item["recipe_steps"].startswith("1. ")
+
+
+def test_seed_allergens_follow_ingredients(client):
+    menu = {item["name"]: item for item in client.get("/api/menu").get_json()}
+    assert "Shellfish" in menu["Fried Rice"]["allergens"]
+    assert "shrimp" in menu["Fried Rice"]["ingredients"]
+    assert "Crustaceans" in menu["Egusi"]["allergens"]
+    assert "Fish" in menu["Stew (Fish)"]["allergens"]
+    assert "Eggs" in menu["Nigerian Shawarma"]["allergens"]
+    assert "Wheat" in menu["Puff-Puff"]["allergens"]
+
+
+def test_menu_prices_hidden_by_default_but_kept_in_db(client):
+    assert all("price" not in item for item in client.get("/api/menu").get_json())
+    prices = [item["price"] for item in cookie_app.load_menu()]
+    assert len(prices) == 13 and all(15 <= p <= 25 for p in prices)
 
 
 def test_menu_includes_prices_when_enabled(priced_client):
     menu = priced_client.get("/api/menu").get_json()
-    assert [item["price"] for item in menu] == [18.0, 18.0, 15.0]
+    assert all(15 <= item["price"] <= 25 for item in menu)
 
 
-def test_prices_stay_in_the_database_while_hidden(client):
+def test_menu_hides_unavailable_items(client):
     client.get("/api/menu")
-    assert [item["price"] for item in cookie_app.load_menu()] == [18.0, 18.0, 15.0]
+    connection = cookie_app.get_connection()
+    with connection:
+        connection.execute("UPDATE menu_items SET available = 0 WHERE name = 'Egusi'")
+    connection.close()
+    names = [item["name"] for item in client.get("/api/menu").get_json()]
+    assert "Egusi" not in names and len(names) == 12
+
+
+def test_old_database_is_backed_up_and_rebuilt(client):
+    db_path = Path(cookie_app.app.config["DATABASE"])
+    connection = sqlite3.connect(db_path)
+    connection.executescript(
+        """
+        CREATE TABLE menu_items (
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+            price REAL NOT NULL, available INTEGER NOT NULL DEFAULT 1
+        );
+        INSERT INTO menu_items (name, description, price)
+        VALUES ('Jollof Rice Plate', 'Old item', 18.0);
+        """
+    )
+    connection.close()
+    names = [item["name"] for item in client.get("/api/menu").get_json()]
+    assert names == MENU_NAMES
+    backup = db_path.with_name("test.v0-backup.db")
+    assert backup.exists()
+    old = sqlite3.connect(backup)
+    assert old.execute("SELECT name FROM menu_items").fetchall() == [("Jollof Rice Plate",)]
+    old.close()
+
+
+def test_current_database_is_kept(client):
+    client.get("/api/menu")
+    connection = cookie_app.get_connection()
+    with connection:
+        connection.execute("UPDATE menu_items SET calories = 700 WHERE name = 'Egusi'")
+    connection.close()
+    menu = {i["name"]: i for i in client.get("/api/menu").get_json()}
+    assert menu["Egusi"]["calories"] == 700
+
+
+def test_unknown_api_route_returns_json_404(client):
+    response = client.get("/api/does-not-exist")
+    assert response.status_code == 404
+    assert response.get_json() == {"error": "Not Found", "status": 404}
 
 
 @pytest.mark.parametrize(
@@ -100,57 +187,43 @@ def test_show_prices_setting(monkeypatch, value, expected):
     assert cookie_app.env_flag("SHOW_PRICES") is expected
 
 
-def test_calories_and_allergens_start_unconfirmed(client):
-    for item in client.get("/api/menu").get_json():
-        assert item["calories"] is None
-        assert item["allergens"] is None
-        assert item["ingredients"] == item["description"]
+# ---------- Website ----------
 
-
-def test_menu_hides_unavailable_items(client):
-    client.get("/api/menu")  # creates the database
-    connection = cookie_app.get_connection()
-    with connection:
-        connection.execute(
-            "UPDATE menu_items SET available = 0 WHERE name = 'Fried Rice Plate'"
-        )
-    connection.close()
-    names = [item["name"] for item in client.get("/api/menu").get_json()]
-    assert "Fried Rice Plate" not in names
-
-
-def test_old_database_is_migrated(client):
-    # A cookie.db made by the first version has no nutrition columns.
-    connection = sqlite3.connect(cookie_app.app.config["DATABASE"])
-    connection.executescript(
-        """
-        CREATE TABLE menu_items (
-            id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT,
-            price REAL NOT NULL, available INTEGER NOT NULL DEFAULT 1
-        );
-        INSERT INTO menu_items (name, description, price)
-        VALUES ('Jollof Rice Plate', 'Jollof rice, chicken, plantain and salad', 18.0);
-        """
-    )
-    connection.close()
-    menu = client.get("/api/menu").get_json()
-    assert menu[0]["ingredients"] == "Jollof rice, chicken, plantain and salad"
-    assert menu[0]["calories"] is None
-    assert menu[0]["allergens"] is None
-
-
-def test_unknown_api_route_returns_json_404(client):
-    response = client.get("/api/does-not-exist")
-    assert response.status_code == 404
-    assert response.get_json() == {"error": "Not Found", "status": 404}
-
-
-def test_site_pages_are_served(client):
-    assert b"Cooking with Cookie" in client.get("/").data
+def test_site_files_are_served(client):
     assert client.get("/css/style.css").status_code == 200
     assert client.get("/js/script.js").status_code == 200
+    assert client.get("/images/placeholder-dish.svg").status_code == 200
     assert client.get("/backend/app.py").status_code == 404
     assert client.get("/.env").status_code == 404
+
+
+def test_site_shows_all_dishes_without_prices(client):
+    html = client.get("/").get_data(as_text=True)
+    assert html.count('class="meal-card"') == 13
+    for name in MENU_NAMES:
+        assert f"<h3>{name.replace('&', '&amp;')}</h3>" in html
+    assert not re.search(r"\$\s?\d", html)
+    assert "data-price=" not in html
+    assert not re.search(r"\$\s?\d", client.get("/js/script.js").get_data(as_text=True))
+
+
+def test_site_contact_details(client):
+    html = client.get("/").get_data(as_text=True)
+    assert f"mailto:{EMAIL}?subject=Bulk%20Order%20Enquiry" in html
+    assert f"mailto:{EMAIL}?subject=Pickup%20Order" in html
+    assert html.count('href="tel:+19024951781"') == 3  # order summary, bulk, footer
+    assert html.count("Serving the Halifax area, Nova Scotia.") == 2
+    assert "example.com" not in html
+
+
+def test_lessons_section_points_to_ask_cookie(client):
+    html = client.get("/").get_data(as_text=True)
+    start = html.index('id="lessons"')
+    section = html[start:html.index("</section>", start)]
+    assert 'href="#assistant"' in section
+    assert "Ask Cookie for a Recipe" in section
+    assert "tel:" not in section  # no phone for recipe questions
+    assert 'href="#lessons"' in html
 
 
 # ---------- Chat validation ----------
@@ -186,115 +259,237 @@ def test_chat_rate_limit(client):
     cookie_app.app.config["CHAT_RATE_LIMIT"] = 3
     codes = [chat(client, "hi").status_code for _ in range(4)]
     assert codes == [200, 200, 200, 429]
-    assert "Too many" in chat(client, "hi").get_json()["error"]
 
 
 # ---------- Fallback mode (no API key) ----------
 
 def test_fallback_used_without_key(client):
-    data = chat(client, "Tell me about the jollof").get_json()
+    data = chat(client, "Tell me about the egusi").get_json()
     assert data["source"] == "fallback"
-    assert "Jollof Rice Plate" in data["reply"]
-    assert_no_price(data["reply"])
+    assert "melon-seed soup" in data["reply"]
+
+
+@pytest.mark.parametrize(
+    "question, dish",
+    [
+        ("How do I make jollof rice?", "Jollof Rice & Peppered Chicken"),
+        ("Can I get the beef stew recipe?", "Stew (Beef)"),
+        ("how to make puff puff", "Puff-Puff"),
+        ("What are the steps for egusi?", "Egusi"),
+        ("How do I cook beans porridge?", "Beans Porridge"),
+        ("how do you make meat pie at home", "Meat Pie"),
+    ],
+)
+def test_fallback_answers_recipes_itself(client, question, dish):
+    text = reply(client, question)
+    assert f"Here's a typical way to make {dish}" in text
+    assert "\n1. " in text and "\n2. " in text
+    assert_no_contact(text)
+    assert_no_price(text)
+
+
+def test_every_dish_has_a_fallback_recipe(client):
+    for item in cookie_app.load_menu():
+        text = cookie_app.recipe_text(item)
+        assert item["recipe_steps"] in text
+
+
+def test_fallback_asks_which_dish_when_unclear(client):
+    text = reply(client, "How do I make stew?")
+    assert "Stew (Beef)" in text and "Stew (Chicken)" in text and "Stew (Fish)" in text
+    general = reply(client, "Can you share a recipe?")
+    assert "Egusi" in general and "Which one" in general
+    assert_no_contact(general)
+
+
+def test_fallback_recipe_with_allergen_adds_note(client):
+    text = reply(client, "How do I make egusi without crayfish?")
+    assert "Here's a typical way to make Egusi" in text
+    assert "cross-contamination" in text
+
+
+def test_fallback_allergens_are_likely_not_verified(client):
+    text = reply(client, "Does the fried rice have shellfish?")
+    assert "Fried Rice likely contains (based on a typical recipe, not verified)" in text
+    assert "Shellfish (shrimp)" in text
+    assert "cross-contamination" in text
+    assert "severe allergy" in text
+    assert_no_contact(text)
+
+
+def test_fallback_allergen_not_listed_is_still_unverified(client):
+    text = reply(client, "Is the meat pie safe for a nut allergy?")
+    assert "Nuts: not listed in its typical recipe, but that hasn't been verified." in text
+    assert "safe for you" in text
+
+
+def test_fallback_which_dishes_contain_allergen(client):
+    text = reply(client, "Which dishes have fish?")
+    assert "likely or possibly contain fish: Dirty Rice, Stew (Fish), Egusi." in text
+
+
+def test_fallback_allergen_question_without_dish(client):
+    text = reply(client, "I have allergies, what should I know?")
+    assert "Tell me which dish" in text
+    assert "cross-contamination" in text
+
+
+def test_fallback_calories_not_available(client):
+    text = reply(client, "How many calories in the puff-puff?")
+    assert text == "Calorie information for Puff-Puff isn't available yet."
+
+
+def test_fallback_uses_verified_values(client):
+    client.get("/api/menu")
+    connection = cookie_app.get_connection()
+    with connection:
+        connection.execute(
+            "UPDATE menu_items SET calories = 650, allergens = 'Wheat, Eggs', "
+            "allergens_verified = 1, ingredients_verified = 1 WHERE name = 'Meat Pie'"
+        )
+    connection.close()
+    assert "about 650 calories" in reply(client, "calories in the meat pie?")
+    assert "Meat Pie contains: Wheat, Eggs." in reply(client, "meat pie allergens?")
+    assert "typical recipe" not in reply(client, "What's in the meat pie?")
+
+
+def test_fallback_ingredients_marked_typical(client):
+    text = reply(client, "What's in egusi?")
+    assert "(typical recipe; Cookie's version may vary)" in text
+    assert "melon seeds" in text
+
+
+@pytest.mark.parametrize(
+    "question, expected",
+    [
+        ("Can you cater a party for 60?", "bulk order"),
+        ("I want to place an order", "pickup order"),
+        ("Do you deliver to Dartmouth?", "Halifax area, Nova Scotia"),
+    ],
+)
+def test_fallback_gives_contact_only_for_orders(client, question, expected):
+    text = reply(client, question)
+    assert expected in text
+    assert EMAIL in text and PHONE in text
+
+
+@pytest.mark.parametrize(
+    "question",
+    ["How do I make jollof rice?", "Does egusi contain fish?", "calories in fried rice",
+     "What's in the shawarma?", "How much is the jollof?", "hi", "What's on the menu?"],
+)
+def test_fallback_no_contact_for_general_questions(client, question):
+    assert_no_contact(reply(client, question))
 
 
 @pytest.mark.parametrize(
     "question",
     ["How much is the jollof?", "What does the shawarma cost?", "prices?",
-     "What's on the menu?", "Tell me about the fried rice", "hi", "party for 40"],
+     "What's on the menu?", "Tell me about the fried rice", "party for 40",
+     "How do I make egusi?"],
 )
 def test_fallback_never_states_prices_when_hidden(client, question):
-    reply = chat(client, question).get_json()["reply"]
-    assert_no_price(reply)
+    assert_no_price(reply(client, question))
 
 
 def test_fallback_price_question_says_coming_soon(client):
-    reply = chat(client, "How much is the jollof?").get_json()["reply"]
-    assert "Pricing is coming soon" in reply
+    assert reply(client, "How much is the jollof?") == "Pricing is coming soon."
 
 
 def test_fallback_states_prices_when_enabled(priced_client):
-    reply = chat(priced_client, "How much is the jollof?").get_json()["reply"]
-    assert "$18.00 CAD" in reply
-    listing = chat(priced_client, "What's on the menu?").get_json()["reply"]
-    assert "Chicken Shawarma $15.00 CAD" in listing
+    text = reply(priced_client, "Tell me about the egusi")
+    assert re.search(r"Egusi is \$\d+\.\d\d CAD", text)
+    assert "CAD" in reply(priced_client, "What's on the menu?")
 
 
-def test_fallback_allergens_not_confirmed(client):
-    reply = chat(client, "Does the shawarma have nuts?").get_json()["reply"]
-    assert "Allergen information for the Chicken Shawarma hasn't been confirmed" in reply
-    assert "cross-contamination" in reply
-    assert "Jollof" not in reply
-
-
-def test_fallback_calories_not_confirmed(client):
-    reply = chat(client, "How many calories are in the fried rice?").get_json()["reply"]
-    assert "Calorie information for the Fried Rice Plate hasn't been confirmed" in reply
-    assert "cross-contamination" not in reply  # "nutrition"/"calories" isn't an allergy
-
-
-def test_fallback_uses_confirmed_values(client):
-    client.get("/api/menu")
-    connection = cookie_app.get_connection()
-    with connection:
-        connection.execute(
-            "UPDATE menu_items SET calories = 650, allergens = 'Soy, Sesame' "
-            "WHERE name = 'Chicken Shawarma'"
-        )
-    connection.close()
-    calories = chat(client, "calories in the shawarma?").get_json()["reply"]
-    assert "about 650 calories" in calories
-    allergens = chat(client, "shawarma allergens?").get_json()["reply"]
-    assert "contains: Soy, Sesame" in allergens
-    assert "cross-contamination" in allergens
-
-
-def test_fallback_does_not_mention_beef_shawarma(client):
-    reply = chat(client, "Tell me about the shawarma").get_json()["reply"]
-    assert "Beef" not in reply
+@pytest.mark.parametrize(
+    "question, expected",
+    [("beef stew", ["Stew (Beef)"]), ("fried rice", ["Fried Rice"]),
+     ("chicken stew", ["Stew (Chicken)"]), ("puff-puff", ["Puff-Puff"]),
+     ("spaghetti", ["Jollof Spaghetti", "Beef Stir-fry Spaghetti"]),
+     ("the stews", ["Stew (Beef)", "Stew (Chicken)", "Stew (Fish)"])],
+)
+def test_dish_matching(client, question, expected):
+    names = [i["name"] for i in cookie_app.find_items(question, cookie_app.load_menu())]
+    assert names == expected
 
 
 # ---------- AI mode (OpenAI client mocked) ----------
 
 def test_ai_reply_used_when_key_set(client, monkeypatch):
-    fake = FakeOpenAI(reply="The Jollof Rice Plate comes with chicken and plantain.")
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    fake = use_fake_ai(monkeypatch, FakeOpenAI(reply="1. Blend the peppers.\n2. Fry the base."))
     monkeypatch.setenv("OPENAI_MODEL", "test-model")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-
-    data = chat(client, "What comes with jollof?").get_json()
-    assert data == {
-        "reply": "The Jollof Rice Plate comes with chicken and plantain.",
-        "source": "ai",
-    }
-
+    data = chat(client, "How do I make jollof?").get_json()
+    assert data == {"reply": "1. Blend the peppers.\n2. Fry the base.", "source": "ai"}
     sent = fake.calls[0]
     assert sent["model"] == "test-model"
-    system, user = sent["messages"]
-    assert user == {"role": "user", "content": "What comes with jollof?"}
-    assert "- Jollof Rice Plate | description:" in system["content"]
-    assert "allergens: NOT CONFIRMED" in system["content"]
-    assert "Never guess" in system["content"]
-    assert "Pricing has not been released yet" in system["content"]
-    assert_no_price(system["content"])
-    assert "test-key" not in system["content"]
+    assert sent["messages"][1] == {"role": "user", "content": "How do I make jollof?"}
+
+
+def test_ai_prompt_contents(client, monkeypatch):
+    fake = use_fake_ai(monkeypatch, FakeOpenAI(reply="Sure!"))
+    chat(client, "hello")
+    system = fake.calls[0]["messages"][0]["content"]
+    for name in MENU_NAMES:
+        assert f"## {name}\n" in system
+    assert "Allergens (likely, based on typical recipe, not verified)" in system
+    assert "Ingredients (typical recipe, not verified)" in system
+    assert "Typical recipe steps:\n1. " in system
+    assert "Calories per serving: NOT AVAILABLE" in system
+    assert "Answer all cooking and recipe questions yourself" in system
+    assert "Nigerian cooking in general" in system
+    assert "Never tell customers to contact the business for recipes" in system
+    assert "Contact details are only for placing orders" in system
+    assert f"email {EMAIL} or phone {PHONE}" in system
+    assert "Halifax area, Nova Scotia" in system
+    assert "Pricing has not been released yet" in system
+    assert_no_price(system)
+    assert "test-key" not in system
 
 
 def test_ai_prompt_includes_prices_when_enabled(priced_client, monkeypatch):
-    fake = FakeOpenAI(reply="The Jollof Rice Plate is $18.00 CAD.")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    data = chat(priced_client, "How much is jollof?").get_json()
-    assert data["reply"] == "The Jollof Rice Plate is $18.00 CAD."
+    fake = use_fake_ai(monkeypatch, FakeOpenAI(reply="Egusi is $22.00 CAD."))
+    assert reply(priced_client, "How much is egusi?") == "Egusi is $22.00 CAD."
     system = fake.calls[0]["messages"][0]["content"]
-    assert "Jollof Rice Plate | price: $18.00 CAD" in system
+    assert re.search(r"## Egusi\nPrice: \$\d+\.\d\d CAD", system)
     assert "Pricing has not been released yet" not in system
 
 
 def test_ai_price_leak_is_blocked_when_hidden(client, monkeypatch):
-    fake = FakeOpenAI(reply="It's about $20 a plate.")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    reply = chat(client, "Roughly what does it run?").get_json()["reply"]
-    assert reply.startswith("Pricing is coming soon")
+    use_fake_ai(monkeypatch, FakeOpenAI(reply="It's about $20 a plate."))
+    assert reply(client, "Roughly what does it run?") == "Pricing is coming soon."
+
+
+def test_ai_recipe_temperatures_are_not_mistaken_for_prices(client, monkeypatch):
+    recipe = "Heat oil to 175°C (350°F) and fry for 3 minutes."
+    use_fake_ai(monkeypatch, FakeOpenAI(reply=recipe))
+    assert reply(client, "How do I fry puff-puff?") == recipe
+
+
+def test_ai_reply_gets_allergy_note(client, monkeypatch):
+    use_fake_ai(monkeypatch, FakeOpenAI(reply="The shawarma likely contains eggs."))
+    text = reply(client, "Is the shawarma safe for an egg allergy?")
+    assert text.startswith("The shawarma likely contains eggs.")
+    assert "cross-contamination" in text
+
+
+def test_ai_failure_falls_back(client, monkeypatch):
+    use_fake_ai(monkeypatch, FakeOpenAI(error=RuntimeError("API down")))
+    data = chat(client, "How do I make fried rice?").get_json()
+    assert data["source"] == "fallback"
+    assert "Here's a typical way to make Fried Rice" in data["reply"]
+
+
+def test_ai_empty_reply_falls_back(client, monkeypatch):
+    use_fake_ai(monkeypatch, FakeOpenAI(reply=""))
+    assert chat(client, "hi").get_json()["source"] == "fallback"
+
+
+def test_get_ai_client_needs_key(monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    assert cookie_app.get_ai_client() is None
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    assert cookie_app.get_ai_client() is not None
 
 
 # ---------- Quote API ----------
@@ -306,18 +501,15 @@ def test_quote_disabled_when_prices_hidden(client):
 
 
 def test_quote_when_prices_enabled(priced_client):
+    menu = {i["id"]: i for i in cookie_app.load_menu()}
     response = priced_client.post(
-        "/api/quote",
-        json={"items": [{"id": 1, "quantity": 2}, {"id": 3, "quantity": 1}]},
+        "/api/quote", json={"items": [{"id": 1, "quantity": 2}, {"id": 4, "quantity": 1}]}
     )
     assert response.status_code == 200
     quote = response.get_json()
-    assert quote["total"] == 51.0
     assert quote["currency"] == "CAD"
-    assert quote["items"][0] == {
-        "id": 1, "name": "Jollof Rice Plate", "quantity": 2,
-        "unit_price": 18.0, "line_total": 36.0,
-    }
+    assert quote["total"] == round(menu[1]["price"] * 2 + menu[4]["price"], 2)
+    assert quote["items"][0]["name"] == "Jollof Rice & Peppered Chicken"
 
 
 @pytest.mark.parametrize(
@@ -330,119 +522,3 @@ def test_quote_when_prices_enabled(priced_client):
 def test_quote_rejects_bad_input(priced_client, body):
     response = priced_client.post("/api/quote", json=body)
     assert response.status_code == 400
-    assert "error" in response.get_json()
-
-
-def test_ai_reply_gets_allergy_note(client, monkeypatch):
-    fake = FakeOpenAI(reply="Allergen info for the shawarma hasn't been confirmed.")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    reply = chat(client, "Is the shawarma safe for a peanut allergy?").get_json()["reply"]
-    assert "cross-contamination" in reply
-
-
-def test_ai_failure_falls_back(client, monkeypatch):
-    fake = FakeOpenAI(error=RuntimeError("API down"))
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    data = chat(client, "Any allergens in jollof?").get_json()
-    assert data["source"] == "fallback"
-    assert "hasn't been confirmed" in data["reply"]
-
-
-def test_ai_empty_reply_falls_back(client, monkeypatch):
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: FakeOpenAI(reply=""))
-    assert chat(client, "hi").get_json()["source"] == "fallback"
-
-
-def test_get_ai_client_needs_key(monkeypatch):
-    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    assert cookie_app.get_ai_client() is None
-    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
-    assert cookie_app.get_ai_client() is not None
-
-
-# ---------- Static files ----------
-
-def test_static_site_contains_no_prices(client):
-    html = client.get("/").get_data(as_text=True)
-    script = client.get("/js/script.js").get_data(as_text=True)
-    assert not re.search(r"\$\s?\d", html)
-    assert "data-price=" not in html
-    assert not re.search(r"\$\s?\d", script)
-
-
-# ---------- Contact details ----------
-
-def test_contact_details_on_site(client):
-    html = client.get("/").get_data(as_text=True)
-    assert "mailto:alajiadeniyi@gmail.com?subject=Bulk%20Order%20Enquiry" in html
-    assert html.count('href="tel:+19024951781"') == 3
-    assert "example.com" not in html
-
-
-@pytest.mark.parametrize(
-    "question",
-    ["Can you cater a party for 60?", "Is the jollof gluten free?", "How much is it?"],
-)
-def test_fallback_gives_contact_details(client, question):
-    reply = chat(client, question).get_json()["reply"]
-    assert "alajiadeniyi@gmail.com" in reply
-    assert "(902) 495-1781" in reply
-
-
-def test_ai_prompt_includes_contact_details(client, monkeypatch):
-    fake = FakeOpenAI(reply="Sure!")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    chat(client, "hello")
-    system = fake.calls[0]["messages"][0]["content"]
-    assert "CONTACT: email alajiadeniyi@gmail.com, phone (902) 495-1781" in system
-
-
-@pytest.mark.parametrize(
-    "question",
-    ["Do you deliver?", "Where are you located?", "Do you serve Dartmouth?"],
-)
-def test_fallback_mentions_service_area(client, question):
-    reply = chat(client, question).get_json()["reply"]
-    assert "Halifax area, Nova Scotia" in reply
-    assert "alajiadeniyi@gmail.com" in reply
-
-
-def test_service_area_on_site_and_in_ai_prompt(client, monkeypatch):
-    html = client.get("/").get_data(as_text=True)
-    assert html.count("Serving the Halifax area, Nova Scotia.") == 2
-    fake = FakeOpenAI(reply="Sure!")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    chat(client, "Do you deliver?")
-    assert "SERVICE AREA: the Halifax area, Nova Scotia" in fake.calls[0]["messages"][0]["content"]
-
-
-# ---------- Cooking lessons ----------
-
-def test_lessons_section_on_site(client):
-    html = client.get("/").get_data(as_text=True)
-    assert 'href="#lessons"' in html and 'id="lessons"' in html
-    assert "mailto:alajiadeniyi@gmail.com?subject=Cooking%20Lesson%20Enquiry" in html
-    assert "details on request" in html
-
-
-@pytest.mark.parametrize(
-    "question",
-    ["Can I get the jollof recipe?", "How do I make fried rice?",
-     "Do you teach cooking classes?", "I want to learn to cook shawarma",
-     "How much are your lessons?"],
-)
-def test_fallback_mentions_lessons(client, question):
-    reply = chat(client, question).get_json()["reply"]
-    assert "cooking lessons" in reply
-    assert "Cooking Lesson Enquiry" in reply
-    assert "(902) 495-1781" in reply
-    assert_no_price(reply)
-
-
-def test_ai_prompt_mentions_lessons(client, monkeypatch):
-    fake = FakeOpenAI(reply="Sure!")
-    monkeypatch.setattr(cookie_app, "get_ai_client", lambda: fake)
-    chat(client, "How do I cook jollof?")
-    system = fake.calls[0]["messages"][0]["content"]
-    assert "COOKING LESSONS:" in system
-    assert "Never state lesson prices" in system

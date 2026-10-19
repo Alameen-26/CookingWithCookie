@@ -194,6 +194,7 @@ nav a:hover {
 .bot-message {
     align-self: flex-start;
     background: var(--cream);
+    white-space: pre-line;
 }
 .user-message {
     align-self: flex-end;

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 460" role="img" aria-label="Placeholder dish image">
+  <rect width="800" height="460" fill="#f7f5f0"/>
+  <ellipse cx="400" cy="250" rx="170" ry="120" fill="#ffffff" stroke="#e5e1d8" stroke-width="6"/>
+  <ellipse cx="400" cy="250" rx="115" ry="78" fill="none" stroke="#b89b5e" stroke-width="4" opacity="0.6"/>
+  <path d="M175 140 v80 M160 140 v45 q15 25 30 0 v-45 M175 220 v130" stroke="#b89b5e" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <path d="M625 140 q-25 40 0 95 v115" stroke="#b89b5e" stroke-width="6" stroke-linecap="round" fill="none"/>
+  <text x="400" y="420" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="22" letter-spacing="3" fill="#6d6d6d">PHOTO COMING SOON</text>
+</svg>

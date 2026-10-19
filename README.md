@@ -2,35 +2,41 @@
 
 Nigerian food, your way. **Cooking with Cookie** is a prototype website for a
 Nigerian food business serving the Halifax area, Nova Scotia. Customers can
-browse the menu, pick quantities, ask about bulk orders for events, enquire
-about cooking lessons, and chat with **Ask Cookie**, an assistant that answers
-questions about the food, ingredients, calories and allergens.
+browse the 13-dish menu, pick quantities, ask about bulk orders for events,
+and chat with **Ask Cookie**, an assistant that answers questions about the
+food and its likely allergens, and shares recipes and cooking tips.
 
 > **Prototype status:** pricing is not finalized, so prices are hidden
 > everywhere by default (see [Turning prices on](#turning-prices-on)).
-> Calorie and allergen details are also waiting for the owner to confirm them.
+> Ingredients, allergens and recipes come from typical recipes for each dish
+> and are marked unverified until the owner checks them. Calories are not
+> filled in yet. Dish photos are placeholders.
 
 ## Features
 
-- **Menu** with photos, descriptions and quantity pickers, plus an order
-  summary that counts selected items.
-- **Bulk orders** section with an email enquiry button and a tap-to-call
-  phone link for parties and events (also in the footer).
-- **Learn to Make It** section offering cooking lessons for the menu dishes,
-  with an email enquiry button (subject "Cooking Lesson Enquiry") and phone
-  link. Lesson format is still to be decided ("details on request").
+- **Menu** of 13 Nigerian dishes (Jollof Rice & Peppered Chicken, Fried Rice,
+  Nigerian Shawarma, Puff-Puff, Meat Pie, Jollof Spaghetti, Beef Stir-fry
+  Spaghetti, Dirty Rice, Stew (Beef), Stew (Chicken), Stew (Fish), Egusi and
+  Beans Porridge) with quantity pickers and an order summary that counts
+  selected items.
+- **Ordering contacts:** email and tap-to-call links for pickup orders and
+  bulk/event orders (order summary, bulk orders section and footer).
+- **Learn to Make It** section inviting customers to ask Cookie for recipes,
+  with an optional email link for in-person lesson enquiries.
 - **Ask Cookie chatbot:**
-  - answers about meals, ingredients, calories, allergens, ordering and bulk
-    orders, using only what is in the menu database;
-  - never guesses calories or allergens: anything not confirmed is reported
-    as "hasn't been confirmed yet", and allergy questions always get a
-    safety note about cross-contamination;
-  - points customers to the business email and phone for allergy
-    questions, orders and bulk orders, and mentions the Halifax service area
-    for location or delivery questions, and suggests cooking lessons when
-    asked about recipes or how to cook a dish;
-  - uses an AI model when an API key is set, and built-in rule-based replies
-    otherwise (or if the AI service fails);
+  - answers questions about the menu, ingredients and likely allergens;
+  - answers cooking questions itself: recipes, step-by-step instructions,
+    tips and substitutions for the menu dishes and Nigerian cooking in
+    general, so the owner doesn't have to;
+  - always says allergen information is likely, based on a typical recipe,
+    and not verified, adds a cross-contamination note, and advises caution
+    for severe allergies;
+  - never guesses calories;
+  - only gives the business email and phone for placing pickup or bulk
+    orders, and mentions the Halifax service area for location questions;
+  - uses an AI model when an API key is set. Without a key (or if the AI
+    service fails) it uses built-in replies from the database, including a
+    short typical recipe for every dish;
   - limited to 10 messages per visitor per minute to protect AI costs.
 - **Prices switch (`SHOW_PRICES`):** off by default. When off, no prices
   appear on the site, in the API or in chatbot replies, which say pricing is
@@ -56,10 +62,10 @@ CookingWithCookie/
 ├── index.html          # The website
 ├── css/style.css       # Styles
 ├── js/script.js        # Order summary, live menu, chat window
-├── images/             # Put your own photos here
+├── images/             # Dish photos (placeholder-dish.svg for now)
 ├── backend/
 │   ├── app.py          # Flask app: website, JSON API, chatbot, pricing
-│   └── schema.sql      # Database tables and starter menu items
+│   └── schema.sql      # Database table and the 13-dish starter menu
 ├── tests/test_app.py   # Backend tests
 ├── .env.example        # Copy to .env for settings (AI key, prices)
 ├── requirements.txt    # App dependencies
@@ -84,8 +90,9 @@ Flask (backend/app.py) ──► SQLite (backend/cookie.db, built from schema.sq
 - The database is the single source of truth for the menu. The page loads
   menu details from `/api/menu` when it starts.
 - For the chatbot, the server builds instructions for the AI from the live
-  menu (names, descriptions, ingredients, calories, allergens and, only if
-  enabled, prices). The AI key never leaves the server.
+  menu (names, descriptions, ingredients, allergens, calories, typical recipe
+  steps, whether each value is verified and, only if enabled, prices). The
+  AI key never leaves the server.
 - If the page is opened directly as a file (without Flask), it still works
   with simple built-in chat replies and no prices.
 
@@ -130,8 +137,8 @@ macOS/Linux: `cp .env.example .env`), edit it, and restart the app.
 | `OPENAI_API_KEY`             | (empty)      | Turns on AI chat replies                          |
 | `OPENAI_MODEL`               | `gpt-6-luna` | AI model to use                                   |
 | `OPENAI_BASE_URL`            | (empty)      | Use another OpenAI-compatible provider            |
-| `CONTACT_EMAIL`              | `alajiadeniyi@gmail.com` | Email the chatbot gives customers     |
-| `CONTACT_PHONE`              | `(902) 495-1781` | Phone the chatbot gives customers         |
+| `CONTACT_EMAIL`              | `alajiadeniyi@gmail.com` | Email the chatbot gives for orders    |
+| `CONTACT_PHONE`              | `(902) 495-1781` | Phone the chatbot gives for orders        |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | `10`         | Chat messages allowed per visitor per minute      |
 | `FLASK_DEBUG`                | `0`          | `1` for auto-reload and detailed errors (local only) |
 
@@ -146,7 +153,8 @@ uploaded to GitHub.
    `OPENAI_MODEL`, and `OPENAI_BASE_URL` for other providers.
 3. Restart `python backend/app.py`.
 
-Chat replies now come from the AI. The API's response shows
+Chat replies now come from the AI, including full recipes, tips and
+substitutions for any Nigerian dish. The API's response shows
 `"source": "ai"` (or `"fallback"` for built-in replies). Never put your key in
 `index.html` or `script.js`.
 
@@ -167,16 +175,28 @@ answer price questions. Set `SHOW_PRICES=false` to hide them again.
 ## Managing the menu
 
 On first run the app creates `backend/cookie.db` from `backend/schema.sql`.
-Each item has a `name`, `description`, `price` (CAD), `available` flag
-(`0` hides it), `ingredients`, `calories` (per serving) and `allergens`
-(comma-separated, for example `Wheat, Sesame, Soy`). A `cookie.db` from an
-older version gets any new columns automatically; nothing is deleted.
+Each dish has:
 
-> **Important:** calorie and allergen information must come from you, the
-> owner, and be checked against your real recipes and ingredient labels.
-> Until a value is filled in, the chatbot says it "hasn't been confirmed yet"
-> and asks customers to contact you. Wrong allergen information can make
-> someone seriously ill, so only enter values you have verified.
+| Column                 | Meaning                                                   |
+| ---------------------- | --------------------------------------------------------- |
+| `name`, `description`  | Shown on the site and used by the chatbot                 |
+| `price`                | CAD placeholder; hidden while `SHOW_PRICES` is off        |
+| `available`            | `1` = on the menu, `0` = hidden                           |
+| `ingredients`          | Comma-separated list                                      |
+| `ingredients_verified` | `0` = typical recipe (default), `1` = checked by you      |
+| `allergens`            | Comma-separated list, e.g. `Wheat (gluten), Eggs`         |
+| `allergens_verified`   | `0` = likely, not verified (default), `1` = checked by you |
+| `calories`             | Per serving; empty (NULL) = not available                 |
+| `recipe_steps`         | Numbered steps, one per line (used when AI is off)        |
+
+> **Important:** the starting ingredients, allergens and recipes describe a
+> typical version of each dish from general knowledge, not your own recipes.
+> Allergens were worked out from those typical ingredients (stock cubes, for
+> example, often contain wheat and soy). Check every dish against your real
+> recipes and ingredient labels, then set the `_verified` columns to `1`.
+> Until then, the chatbot says allergens are "likely, based on a typical
+> recipe, not verified". Wrong allergen information can make someone
+> seriously ill.
 
 **Option 1: update the database.** Stop the app, open `backend/cookie.db`
 with a free app like [DB Browser for SQLite](https://sqlitebrowser.org/) (or
@@ -184,11 +204,13 @@ the `sqlite3` command-line tool), and run, for example:
 
 ```sql
 UPDATE menu_items
-SET ingredients = 'REPLACE with every ingredient in this dish',
+SET ingredients = 'REPLACE with every ingredient in your recipe',
+    ingredients_verified = 1,
+    allergens = 'REPLACE with verified allergens, e.g. Wheat, Eggs',
+    allergens_verified = 1,
     calories = NULL,  -- REPLACE NULL with the verified calories per serving
-    allergens = 'REPLACE with allergens, e.g. Wheat, Sesame',
     price = 0.00      -- REPLACE with the final price
-WHERE name = 'Jollof Rice Plate';
+WHERE name = 'Meat Pie';
 ```
 
 Replace each value with your own verified information before running it.
@@ -196,6 +218,11 @@ Replace each value with your own verified information before running it.
 **Option 2: edit the starting data.** Change the `INSERT` statements in
 `backend/schema.sql`, then delete `backend/cookie.db` and restart the app to
 rebuild it. This resets any other changes made to the database.
+
+When the starting menu changes in a new version of the app, the
+`PRAGMA user_version` number in `schema.sql` goes up. On the next start, an
+older `cookie.db` is copied to `cookie.v<old number>-backup.db` and a fresh one
+is built, so earlier edits can still be recovered from the backup.
 
 New dishes added to the database appear in the API and chatbot right away;
 add a matching card to `index.html` to show them on the page.
@@ -219,20 +246,22 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The tests cover the menu and quote APIs with prices on and off, chat input
-checks and rate limiting, the built-in replies (including "not confirmed"
-calories and allergens), the AI path with a fake AI client, database
-upgrades, and that the website files contain no prices.
+The tests cover the 13-dish menu and its safety flags, the menu and quote
+APIs with prices on and off, chat input checks and rate limiting, the
+built-in replies (recipes, "likely, not verified" allergens, unavailable
+calories, contact details only for orders), the AI instructions with a fake
+AI client, database upgrades with backups, and that the website contains no
+prices.
 
 ## Before going live
 
 - Finalize prices (and any labour costs in them), then turn on `SHOW_PRICES`.
-- Decide the cooking lesson format and update the "Learn to Make It" section
-  in `index.html`.
-- Fill in verified ingredients, calories and allergens for every dish.
+- Replace `images/placeholder-dish.svg` with real photos of your dishes and
+  update the `<img>` tags in `index.html`.
+- Check the ingredients, allergens and recipes for every dish against your
+  own recipes, add calories, and mark them verified.
 - If the contact email or phone changes, update it in `index.html` (bulk
-  orders section and footer), `js/script.js` (`CONTACT`) and `.env`.
-- Replace the stock photos with your own in `images/`.
+  orders section and footer), `js/script.js` (`ORDER_CONTACT`) and `.env`.
 - Run Flask behind a production server (for example Waitress or Gunicorn)
   rather than `python backend/app.py`. The chat rate limit is kept in memory
   and resets when the app restarts; behind a proxy, make sure visitors' real

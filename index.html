@@ -40,16 +40,16 @@
             <div class="menu-grid">
                 <article class="meal-card">
                     <img
-                        src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&amp;fit=crop&amp;w=800&amp;q=80"
-                        alt="A prepared meal with rice and vegetables"
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Jollof Rice &amp; Peppered Chicken"
                     >
                     <div class="meal-info">
-                        <h3>Jollof Rice Plate</h3>
-                        <p>Jollof rice, chicken, plantain and salad.</p>
+                        <h3>Jollof Rice &amp; Peppered Chicken</h3>
+                        <p>Smoky party-style jollof rice with spicy peppered chicken.</p>
                         <p class="price price-only" hidden></p>
-                        <label for="jollof-quantity">Quantity</label>
+                        <label for="jollof-rice-quantity">Quantity</label>
                         <input
-                            id="jollof-quantity"
+                            id="jollof-rice-quantity"
                             class="quantity"
                             type="number"
                             min="0"
@@ -60,12 +60,12 @@
                 </article>
                 <article class="meal-card">
                     <img
-                        src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&amp;fit=crop&amp;w=800&amp;q=80"
-                        alt="A colourful plate of food"
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Fried Rice"
                     >
                     <div class="meal-info">
-                        <h3>Fried Rice Plate</h3>
-                        <p>Fried rice, chicken, plantain and salad.</p>
+                        <h3>Fried Rice</h3>
+                        <p>Nigerian fried rice with mixed vegetables, shrimp and a hint of curry.</p>
                         <p class="price price-only" hidden></p>
                         <label for="fried-rice-quantity">Quantity</label>
                         <input
@@ -80,16 +80,216 @@
                 </article>
                 <article class="meal-card">
                     <img
-                        src="https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&amp;fit=crop&amp;w=800&amp;q=80"
-                        alt="Prepared grilled food"
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Nigerian Shawarma"
                     >
                     <div class="meal-info">
-                        <h3>Chicken Shawarma</h3>
-                        <p>A savoury chicken wrap with vegetables and sauce.</p>
+                        <h3>Nigerian Shawarma</h3>
+                        <p>A Nigerian-style wrap with spiced chicken or beef, sausage, cabbage and creamy sauce.</p>
                         <p class="price price-only" hidden></p>
                         <label for="shawarma-quantity">Quantity</label>
                         <input
                             id="shawarma-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Puff-Puff"
+                    >
+                    <div class="meal-info">
+                        <h3>Puff-Puff</h3>
+                        <p>Soft, golden fried dough balls with a light nutmeg sweetness.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="puff-puff-quantity">Quantity</label>
+                        <input
+                            id="puff-puff-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Meat Pie"
+                    >
+                    <div class="meal-info">
+                        <h3>Meat Pie</h3>
+                        <p>Buttery pastry filled with seasoned minced beef, potato and carrot.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="meat-pie-quantity">Quantity</label>
+                        <input
+                            id="meat-pie-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Jollof Spaghetti"
+                    >
+                    <div class="meal-info">
+                        <h3>Jollof Spaghetti</h3>
+                        <p>Spaghetti cooked in a rich, peppery jollof tomato sauce.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="jollof-spaghetti-quantity">Quantity</label>
+                        <input
+                            id="jollof-spaghetti-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Beef Stir-fry Spaghetti"
+                    >
+                    <div class="meal-info">
+                        <h3>Beef Stir-fry Spaghetti</h3>
+                        <p>Spaghetti tossed with tender beef strips and colourful stir-fried vegetables.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="beef-stir-fry-spaghetti-quantity">Quantity</label>
+                        <input
+                            id="beef-stir-fry-spaghetti-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Dirty Rice"
+                    >
+                    <div class="meal-info">
+                        <h3>Dirty Rice</h3>
+                        <p>Rustic native-style rice cooked in palm oil with peppers, crayfish and smoked fish.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="dirty-rice-quantity">Quantity</label>
+                        <input
+                            id="dirty-rice-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Stew (Beef)"
+                    >
+                    <div class="meal-info">
+                        <h3>Stew (Beef)</h3>
+                        <p>Classic Nigerian tomato and pepper stew with tender beef.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="stew-beef-quantity">Quantity</label>
+                        <input
+                            id="stew-beef-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Stew (Chicken)"
+                    >
+                    <div class="meal-info">
+                        <h3>Stew (Chicken)</h3>
+                        <p>Classic Nigerian tomato and pepper stew with chicken.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="stew-chicken-quantity">Quantity</label>
+                        <input
+                            id="stew-chicken-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Stew (Fish)"
+                    >
+                    <div class="meal-info">
+                        <h3>Stew (Fish)</h3>
+                        <p>Classic Nigerian tomato and pepper stew with fried fish.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="stew-fish-quantity">Quantity</label>
+                        <input
+                            id="stew-fish-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Egusi"
+                    >
+                    <div class="meal-info">
+                        <h3>Egusi</h3>
+                        <p>Rich melon-seed soup with leafy greens, palm oil, meat and fish.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="egusi-quantity">Quantity</label>
+                        <input
+                            id="egusi-quantity"
+                            class="quantity"
+                            type="number"
+                            min="0"
+                            max="100"
+                            value="0"
+                        >
+                    </div>
+                </article>
+                <article class="meal-card">
+                    <img
+                        src="images/placeholder-dish.svg"
+                        alt="Placeholder image for Beans Porridge"
+                    >
+                    <div class="meal-info">
+                        <h3>Beans Porridge</h3>
+                        <p>Slow-cooked black-eyed beans in a savoury palm-oil and pepper sauce.</p>
+                        <p class="price price-only" hidden></p>
+                        <label for="beans-porridge-quantity">Quantity</label>
+                        <input
+                            id="beans-porridge-quantity"
                             class="quantity"
                             type="number"
                             min="0"
@@ -106,8 +306,11 @@
                     Estimated total: <span id="order-total"></span>
                 </p>
                 <p class="small-note">
-                    Demonstration only. No order has been placed.
+                    No order is placed on this website.
                     <span class="pricing-soon">Pricing is coming soon.</span>
+                    To place a pickup order, email
+                    <a href="mailto:alajiadeniyi@gmail.com?subject=Pickup%20Order"><strong>alajiadeniyi@gmail.com</strong></a>
+                    or call <a href="tel:+19024951781"><strong>(902) 495-1781</strong></a>.
                 </p>
             </div>
         </section>
@@ -131,25 +334,23 @@
             <p class="eyebrow">LEARN TO MAKE IT</p>
             <h2>Cook it yourself</h2>
             <p>
-                Want to make our Jollof Rice, Fried Rice or Chicken Shawarma
-                at home? Cookie offers cooking lessons for the dishes on our menu.
+                Want to make our dishes at home? Ask Cookie for a recipe.
+                You'll get typical ingredients, step-by-step instructions,
+                tips and substitutions for everything on our menu, and for
+                Nigerian cooking in general.
             </p>
+            <a class="button" href="#assistant">Ask Cookie for a Recipe</a>
             <p class="small-note">
-                Lesson format, dates and group size: details on request.
-            </p>
-            <a class="button" href="mailto:alajiadeniyi@gmail.com?subject=Cooking%20Lesson%20Enquiry">
-                Enquire About Cooking Lessons
-            </a>
-            <p>
-                Or call us at
-                <a href="tel:+19024951781"><strong>(902) 495-1781</strong></a>.
+                Interested in an in-person cooking lesson?
+                <a href="mailto:alajiadeniyi@gmail.com?subject=Cooking%20Lesson%20Enquiry"><strong>Email us</strong></a>
+                (details on request).
             </p>
         </section>
         <section class="assistant-section" id="assistant">
             <p class="eyebrow">HERE TO HELP</p>
             <h2>Ask Cookie</h2>
             <p>
-                Need help choosing a meal? Ask our demonstration assistant.
+                Need help choosing a meal, or want a recipe? Ask our assistant.
             </p>
             <div class="chat-box">
                 <div
@@ -159,10 +360,7 @@
                     aria-live="polite"
                     aria-label="Chat conversation"
                 >
-                    <p class="bot-message">
-                        Hi! I'm Cookie's assistant.
-                        Ask me about our menu, ingredients, calories or allergens.
-                    </p>
+                    <p class="bot-message">Hi! I'm Cookie's assistant. Ask me about our menu, ingredients and allergens, or how to make any dish.</p>
                 </div>
                 <form id="chat-form">
                     <label class="visually-hidden" for="chat-input">
@@ -171,7 +369,7 @@
                     <input
                         id="chat-input"
                         type="text"
-                        placeholder="What would you like to eat?"
+                        placeholder="Ask about a dish or a recipe…"
                         required
                         maxlength="500"
                     >

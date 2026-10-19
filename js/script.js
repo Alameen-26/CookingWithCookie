@@ -94,11 +94,10 @@ const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
 const chatMessages = document.querySelector("#chat-messages");
 const chatButton = chatForm.querySelector("button");
-const CONTACT = "alajiadeniyi@gmail.com or (902) 495-1781";
-const PRICING_SOON =
-    "Pricing is coming soon. Please contact Cooking with Cookie at " + CONTACT + " for details in the meantime.";
-const UNCONFIRMED_NOTE =
-    "Calorie and allergen details haven't been confirmed yet. Please contact Cooking with Cookie at " + CONTACT + " before ordering, especially if you have a severe allergy, as cross-contamination is possible.";
+const ORDER_CONTACT = "email alajiadeniyi@gmail.com or call (902) 495-1781";
+const PRICING_SOON = "Pricing is coming soon.";
+const ALLERGY_NOTE =
+    "Allergen information is based on typical recipes and hasn't been verified, and cross-contamination is possible in our kitchen. If you have a severe allergy, please be very cautious.";
 function addMessage(message, sender) {
     const paragraph = document.createElement("p");
     paragraph.className =
@@ -109,37 +108,35 @@ function addMessage(message, sender) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
     return paragraph;
 }
+// Simple replies used only when the server can't be reached.
 function getCookieReply(message) {
     const text = message.toLowerCase();
-    if (/allerg|gluten|\bnuts?\b|peanut|dairy|milk|\beggs?\b|soy|sesame|wheat|calorie|nutrition/.test(text)) {
-        return UNCONFIRMED_NOTE;
+    if (/allerg|intoleran|gluten|\bnuts?\b|peanut|dairy|milk|\beggs?\b|soy|sesame|wheat|shellfish|shrimp|crayfish/.test(text)) {
+        return ALLERGY_NOTE + " Ask again in a moment for details about a specific dish.";
+    }
+    if (/recipe|how (do|can|would|should) (i|you|we) (cook|make|prepare)|how to (cook|make|prepare)|steps|substitut|tips?\b/.test(text)) {
+        return "Cookie's recipe helper can't be reached right now. Please try again in a moment.";
+    }
+    if (/calorie|nutrition/.test(text)) {
+        return "Calorie information for our dishes isn't available yet.";
     }
     if (/price|cost|how much|quote|\$/.test(text)) {
         return PRICING_SOON;
     }
-    if (/\b(recipes?|learn\w*|lessons?|class(es)?|teach\w*|how (do|can|would) (i|you|we) (cook|make|prepare)|how to (cook|make|prepare))\b/.test(text)) {
-        return "Cookie offers cooking lessons for the dishes on our menu. Format and dates: details on request. Email alajiadeniyi@gmail.com (subject: Cooking Lesson Enquiry) or call (902) 495-1781.";
-    }
-    if (text.includes("jollof")) {
-        return "Our Jollof Rice Plate comes with jollof rice, chicken, plantain and salad.";
-    }
-    if (text.includes("fried rice")) {
-        return "Our Fried Rice Plate comes with fried rice, chicken, plantain and salad.";
-    }
-    if (text.includes("shawarma")) {
-        return "Our Chicken Shawarma is a chicken wrap with vegetables and sauce.";
-    }
     if (/\b(where|locat\w*|deliver\w*|pick ?up|area|halifax|dartmouth|nova scotia|address|near)\b/.test(text)) {
-        return "Cooking with Cookie serves the Halifax area, Nova Scotia. For delivery or pickup details, please contact us at " + CONTACT + ".";
+        return "Cooking with Cookie serves the Halifax area, Nova Scotia. To place a pickup order, " + ORDER_CONTACT + ".";
     }
     if (/bulk|party|event|cater|crowd|wedding|group|people/.test(text)) {
-        return "We can discuss catering for groups. Email or call us at " + CONTACT + " and tell us how many people you are feeding and your preferred meals.";
+        return "We can cater for groups and events. To place a bulk order, " + ORDER_CONTACT + " and tell us how many people you are feeding.";
+    }
+    if (/\border/.test(text)) {
+        return "Orders aren't placed on this website. To place a pickup order, " + ORDER_CONTACT + ".";
     }
     // Whole-word match so words like "chicken" don't count as "hi".
     if (/\b(hello|hi|hey)\b/.test(text)) {
-        return "Hello! Welcome to Cooking with Cookie. What kind of meal are you looking for?";
+        return "Hello! Welcome to Cooking with Cookie. Ask me about our dishes or how to make them.";
     }
-    return "I'd be happy to help with your meal choices. Try asking about Jollof, fried rice, shawarma, ingredients, calories, allergens or bulk orders.";
+    return "Browse our menu above, or ask me about a dish, its ingredients or how to make it.";
 }
 async function askServer(message) {
     if (!window.location.protocol.startsWith("http")) {
