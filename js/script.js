@@ -1,5 +1,8 @@
 "use strict";
-// All prices are in Canadian dollars (CAD).
+// Prices are hidden until the backend turns them on (SHOW_PRICES in .env).
+// When it does, /api/menu includes a price for each item (in CAD) and the
+// page shows prices and an estimated total. Otherwise only item counts show.
+let showPrices = false;
 const CURRENCY_FORMAT = new Intl.NumberFormat("en-CA", {
     style: "currency",
     currency: "CAD"
@@ -7,7 +10,7 @@ const CURRENCY_FORMAT = new Intl.NumberFormat("en-CA", {
 function formatPrice(amount) {
     return CURRENCY_FORMAT.format(amount);
 }
-// PART 1: ORDER CALCULATOR
+// PART 1: ORDER SUMMARY
 const quantityInputs = document.querySelectorAll(".quantity");
 const itemCount = document.querySelector("#item-count");
 const orderTotal = document.querySelector("#order-total");
@@ -16,12 +19,12 @@ function calculateOrder() {
     let totalPrice = 0;
     quantityInputs.forEach(function (input) {
         const quantity = Number(input.value);
-        const price = Number(input.dataset.price);
+        const price = Number(input.dataset.price || 0);
         totalItems += quantity;
         totalPrice += quantity * price;
     });
     itemCount.textContent = totalItems;
-    orderTotal.textContent = formatPrice(totalPrice);
+    orderTotal.textContent = showPrices ? formatPrice(totalPrice) : "";
 }
 quantityInputs.forEach(function (input) {
     input.addEventListener("input", function () {
@@ -38,12 +41,25 @@ quantityInputs.forEach(function (input) {
 });
 calculateOrder();
 // PART 1B: LIVE MENU FROM THE BACKEND
-// When the site is served by Flask, prices come from /api/menu.
-// If the request fails (for example, the page was opened directly
-// as a file), the prices already written in index.html are kept.
+// Prices only appear if the backend sends them. If the request fails (for
+// example, the page was opened directly as a file), no prices are shown.
+function showPriceElements() {
+    showPrices = true;
+    document.querySelectorAll(".price-only").forEach(function (element) {
+        element.hidden = false;
+    });
+    document.querySelectorAll(".pricing-soon").forEach(function (element) {
+        element.hidden = true;
+    });
+}
 function applyMenu(menu) {
-    const cards = document.querySelectorAll(".meal-card");
-    cards.forEach(function (card) {
+    const hasPrices = menu.length > 0 && menu.every(function (item) {
+        return typeof item.price === "number";
+    });
+    if (!hasPrices) {
+        return;
+    }
+    document.querySelectorAll(".meal-card").forEach(function (card) {
         const name = card.querySelector("h3").textContent.trim();
         const item = menu.find(function (entry) {
             return entry.name === name;
@@ -51,11 +67,10 @@ function applyMenu(menu) {
         if (!item) {
             return;
         }
-        const priceText = card.querySelector(".price");
-        const input = card.querySelector(".quantity");
-        priceText.textContent = formatPrice(item.price);
-        input.dataset.price = item.price;
+        card.querySelector(".price").textContent = formatPrice(item.price);
+        card.querySelector(".quantity").dataset.price = item.price;
     });
+    showPriceElements();
     calculateOrder();
 }
 if (window.location.protocol.startsWith("http")) {
@@ -68,7 +83,7 @@ if (window.location.protocol.startsWith("http")) {
         })
         .then(applyMenu)
         .catch(function (error) {
-            console.info("Using the built-in menu prices.", error);
+            console.info("Menu details unavailable.", error);
         });
 }
 // PART 2: ASK COOKIE CHAT ASSISTANT
@@ -79,8 +94,11 @@ const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
 const chatMessages = document.querySelector("#chat-messages");
 const chatButton = chatForm.querySelector("button");
+const CONTACT = "alajiadeniyi@gmail.com or (902) 495-1781";
+const PRICING_SOON =
+    "Pricing is coming soon. Please contact Cooking with Cookie at " + CONTACT + " for details in the meantime.";
 const UNCONFIRMED_NOTE =
-    "Calorie and allergen details haven't been confirmed yet. Please contact Cooking with Cookie before ordering, especially if you have a severe allergy, as cross-contamination is possible.";
+    "Calorie and allergen details haven't been confirmed yet. Please contact Cooking with Cookie at " + CONTACT + " before ordering, especially if you have a severe allergy, as cross-contamination is possible.";
 function addMessage(message, sender) {
     const paragraph = document.createElement("p");
     paragraph.className =
@@ -96,26 +114,32 @@ function getCookieReply(message) {
     if (/allerg|gluten|\bnuts?\b|peanut|dairy|milk|\beggs?\b|soy|sesame|wheat|calorie|nutrition/.test(text)) {
         return UNCONFIRMED_NOTE;
     }
+    if (/price|cost|how much|quote|\$/.test(text)) {
+        return PRICING_SOON;
+    }
+    if (/\b(recipes?|learn\w*|lessons?|class(es)?|teach\w*|how (do|can|would) (i|you|we) (cook|make|prepare)|how to (cook|make|prepare))\b/.test(text)) {
+        return "Cookie offers cooking lessons for the dishes on our menu. Format and dates: details on request. Email alajiadeniyi@gmail.com (subject: Cooking Lesson Enquiry) or call (902) 495-1781.";
+    }
     if (text.includes("jollof")) {
-        return "Our proposed Jollof Rice Plate is $18 and includes chicken, plantain and salad.";
+        return "Our Jollof Rice Plate comes with jollof rice, chicken, plantain and salad.";
     }
     if (text.includes("fried rice")) {
-        return "Our proposed Fried Rice Plate is $18 and includes chicken, plantain and salad.";
+        return "Our Fried Rice Plate comes with fried rice, chicken, plantain and salad.";
     }
     if (text.includes("shawarma")) {
-        return "Our proposed Chicken Shawarma is $15 and is a chicken wrap with vegetables and sauce.";
+        return "Our Chicken Shawarma is a chicken wrap with vegetables and sauce.";
     }
-    if (text.includes("bulk") || text.includes("party")) {
-        return "We can discuss catering for groups. Tell us how many people you are feeding and your preferred meals.";
+    if (/\b(where|locat\w*|deliver\w*|pick ?up|area|halifax|dartmouth|nova scotia|address|near)\b/.test(text)) {
+        return "Cooking with Cookie serves the Halifax area, Nova Scotia. For delivery or pickup details, please contact us at " + CONTACT + ".";
     }
-    if (text.includes("price") || text.includes("cost")) {
-        return "Our current demonstration menu includes meals from $15 to $18 (CAD). These prices still need validation against actual business costs.";
+    if (/bulk|party|event|cater|crowd|wedding|group|people/.test(text)) {
+        return "We can discuss catering for groups. Email or call us at " + CONTACT + " and tell us how many people you are feeding and your preferred meals.";
     }
     // Whole-word match so words like "chicken" don't count as "hi".
     if (/\b(hello|hi|hey)\b/.test(text)) {
         return "Hello! Welcome to Cooking with Cookie. What kind of meal are you looking for?";
     }
-    return "I'd be happy to help with your meal choices. Try asking about Jollof, fried rice, shawarma, prices, calories, allergens or bulk orders.";
+    return "I'd be happy to help with your meal choices. Try asking about Jollof, fried rice, shawarma, ingredients, calories, allergens or bulk orders.";
 }
 async function askServer(message) {
     if (!window.location.protocol.startsWith("http")) {

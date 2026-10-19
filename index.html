@@ -15,6 +15,7 @@
             <a href="#home">Home</a>
             <a href="#menu">Menu</a>
             <a href="#bulk-orders">Bulk Orders</a>
+            <a href="#lessons">Learn to Make It</a>
             <a href="#assistant">Ask Cookie</a>
         </nav>
     </header>
@@ -33,7 +34,8 @@
             <h2>Our Menu</h2>
             <p class="section-description">
                 Nigerian favourites prepared with flavour and care.
-                All prices are in Canadian dollars (CAD).
+                <span class="price-only" hidden>All prices are in Canadian dollars (CAD).</span>
+                <span class="pricing-soon">Pricing is coming soon.</span>
             </p>
             <div class="menu-grid">
                 <article class="meal-card">
@@ -44,7 +46,7 @@
                     <div class="meal-info">
                         <h3>Jollof Rice Plate</h3>
                         <p>Jollof rice, chicken, plantain and salad.</p>
-                        <p class="price">$18.00</p>
+                        <p class="price price-only" hidden></p>
                         <label for="jollof-quantity">Quantity</label>
                         <input
                             id="jollof-quantity"
@@ -53,7 +55,6 @@
                             min="0"
                             max="100"
                             value="0"
-                            data-price="18"
                         >
                     </div>
                 </article>
@@ -65,7 +66,7 @@
                     <div class="meal-info">
                         <h3>Fried Rice Plate</h3>
                         <p>Fried rice, chicken, plantain and salad.</p>
-                        <p class="price">$18.00</p>
+                        <p class="price price-only" hidden></p>
                         <label for="fried-rice-quantity">Quantity</label>
                         <input
                             id="fried-rice-quantity"
@@ -74,7 +75,6 @@
                             min="0"
                             max="100"
                             value="0"
-                            data-price="18"
                         >
                     </div>
                 </article>
@@ -86,7 +86,7 @@
                     <div class="meal-info">
                         <h3>Chicken Shawarma</h3>
                         <p>A savoury chicken wrap with vegetables and sauce.</p>
-                        <p class="price">$15.00</p>
+                        <p class="price price-only" hidden></p>
                         <label for="shawarma-quantity">Quantity</label>
                         <input
                             id="shawarma-quantity"
@@ -95,19 +95,19 @@
                             min="0"
                             max="100"
                             value="0"
-                            data-price="15"
                         >
                     </div>
                 </article>
             </div>
             <div class="order-summary">
-                <h3>Your order estimate</h3>
+                <h3>Your order</h3>
                 <p>Selected items: <span id="item-count">0</span></p>
-                <p class="total">
-                    Estimated total: <span id="order-total">$0.00</span>
+                <p class="total price-only" hidden>
+                    Estimated total: <span id="order-total"></span>
                 </p>
                 <p class="small-note">
                     Demonstration only. No order has been placed.
+                    <span class="pricing-soon">Pricing is coming soon.</span>
                 </p>
             </div>
         </section>
@@ -118,11 +118,31 @@
                 Planning a party or event? Tell us how many people
                 you're feeding and what you'd like to serve.
             </p>
-            <a class="button" href="mailto:orders@example.com?subject=Bulk%20Order%20Enquiry">
+            <a class="button" href="mailto:alajiadeniyi@gmail.com?subject=Bulk%20Order%20Enquiry">
                 Enquire About Bulk Orders
             </a>
+            <p>
+                Prefer to talk? Call us at
+                <a href="tel:+19024951781"><strong>(902) 495-1781</strong></a>.
+            </p>
+            <p class="small-note">Serving the Halifax area, Nova Scotia.</p>
+        </section>
+        <section class="lessons-section" id="lessons">
+            <p class="eyebrow">LEARN TO MAKE IT</p>
+            <h2>Cook it yourself</h2>
+            <p>
+                Want to make our Jollof Rice, Fried Rice or Chicken Shawarma
+                at home? Cookie offers cooking lessons for the dishes on our menu.
+            </p>
             <p class="small-note">
-                Replace this example email address with your business email.
+                Lesson format, dates and group size: details on request.
+            </p>
+            <a class="button" href="mailto:alajiadeniyi@gmail.com?subject=Cooking%20Lesson%20Enquiry">
+                Enquire About Cooking Lessons
+            </a>
+            <p>
+                Or call us at
+                <a href="tel:+19024951781"><strong>(902) 495-1781</strong></a>.
             </p>
         </section>
         <section class="assistant-section" id="assistant">
@@ -163,6 +183,12 @@
     <footer>
         <p>&copy; 2026 Cooking with Cookie. All rights reserved.</p>
         <p>Nigerian food, your way.</p>
+        <p>Serving the Halifax area, Nova Scotia.</p>
+        <p>
+            <a href="mailto:alajiadeniyi@gmail.com">alajiadeniyi@gmail.com</a>
+            ·
+            <a href="tel:+19024951781">(902) 495-1781</a>
+        </p>
     </footer>
 </body>
 </html>

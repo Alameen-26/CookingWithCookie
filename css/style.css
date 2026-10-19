@@ -85,11 +85,13 @@ nav a:hover {
 }
 .menu-section,
 .bulk-section,
+.lessons-section,
 .assistant-section {
     padding: 75px 7%;
 }
 .menu-section h2,
 .bulk-section h2,
+.lessons-section h2,
 .assistant-section h2 {
     margin: 5px 0 12px;
     font-family: Georgia, "Times New Roman", serif;
@@ -158,7 +160,8 @@ nav a:hover {
 .bulk-section {
     background: var(--cream);
 }
-.bulk-section > p:not(.eyebrow) {
+.bulk-section > p:not(.eyebrow),
+.lessons-section > p:not(.eyebrow) {
     max-width: 650px;
 }
 .assistant-section {
