@@ -133,14 +133,31 @@ nav a:hover {
     font-size: 1.2rem;
     font-weight: 700;
 }
-.quantity {
+.quantity,
+.dish-option {
     display: block;
     width: 100%;
     margin-top: 8px;
+    margin-bottom: 12px;
     padding: 10px;
     border: 1px solid var(--border);
     border-radius: 4px;
+    background: var(--white);
     font: inherit;
+}
+.learn-button {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--black);
+    font: inherit;
+    cursor: pointer;
+}
+.learn-button:hover,
+.learn-button:focus-visible {
+    background: var(--gold);
 }
 .order-summary {
     margin-top: 35px;
@@ -245,6 +262,13 @@ footer {
 }
 footer p {
     margin: 5px;
+}
+footer a {
+    color: var(--white);
+}
+.photo-credits {
+    color: #bdbdbd;
+    font-size: 0.8rem;
 }
 @media (max-width: 800px) {
     .site-header {

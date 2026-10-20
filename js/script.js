@@ -86,6 +86,17 @@ if (window.location.protocol.startsWith("http")) {
             console.info("Menu details unavailable.", error);
         });
 }
+// PART 1C: "LEARN TO MAKE IT" BUTTONS
+// Each dish card has a button that asks Cookie for that dish's recipe.
+document.querySelectorAll(".learn-button").forEach(function (button) {
+    button.addEventListener("click", function () {
+        const input = document.querySelector("#chat-input");
+        const form = document.querySelector("#chat-form");
+        input.value = "How do I make " + button.dataset.dish + "?";
+        document.querySelector("#assistant").scrollIntoView({ behavior: "smooth" });
+        form.requestSubmit();
+    });
+});
 // PART 2: ASK COOKIE CHAT ASSISTANT
 // Messages go to the backend (/api/chat), which answers with AI or with
 // its own rule-based replies. If the backend can't be reached (for example,

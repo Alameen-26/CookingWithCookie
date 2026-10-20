@@ -10,18 +10,23 @@ food and its likely allergens, and shares recipes and cooking tips.
 > everywhere by default (see [Turning prices on](#turning-prices-on)).
 > Ingredients, allergens and recipes come from typical recipes for each dish
 > and are marked unverified until the owner checks them. Calories are not
-> filled in yet. Dish photos are placeholders.
+> filled in yet. Dish photos are openly licensed stock photos (see
+> [Dish photos](#dish-photos)) until Cookie's own photos are ready.
 
 ## Features
 
 - **Menu** of 13 Nigerian dishes (Jollof Rice & Peppered Chicken, Fried Rice,
   Nigerian Shawarma, Puff-Puff, Meat Pie, Jollof Spaghetti, Beef Stir-fry
-  Spaghetti, Dirty Rice, Stew (Beef), Stew (Chicken), Stew (Fish), Egusi and
-  Beans Porridge) with quantity pickers and an order summary that counts
-  selected items.
+  Spaghetti, Grilled Chicken, Meat or Fish, Stew (Beef), Stew (Chicken),
+  Stew (Fish), Egusi and Beans Porridge) with a photo, quantity picker and
+  "Learn to make it" button on each card, and an order summary that counts
+  selected items. The grilled plate comes with a choice of protein (chicken,
+  meat (beef) or fish) and side (sweet potatoes, fries or fried plantain).
 - **Ordering contacts:** email and tap-to-call links for pickup orders and
   bulk/event orders (order summary, bulk orders section and footer).
-- **Learn to Make It** section inviting customers to ask Cookie for recipes,
+- **Learn to Make It:** every dish card has a "Learn to make it" button that
+  asks Cookie for that dish's recipe, plus a section inviting customers to ask
+  Cookie for recipes,
   with an optional email link for in-person lesson enquiries.
 - **Ask Cookie chatbot:**
   - answers questions about the menu, ingredients and likely allergens;
@@ -62,7 +67,7 @@ CookingWithCookie/
 ├── index.html          # The website
 ├── css/style.css       # Styles
 ├── js/script.js        # Order summary, live menu, chat window
-├── images/             # Dish photos (placeholder-dish.svg for now)
+├── images/             # Dish photos, CREDITS.md and placeholder-dish.svg
 ├── backend/
 │   ├── app.py          # Flask app: website, JSON API, chatbot, pricing
 │   └── schema.sql      # Database table and the 13-dish starter menu
@@ -188,6 +193,8 @@ Each dish has:
 | `allergens_verified`   | `0` = likely, not verified (default), `1` = checked by you |
 | `calories`             | Per serving; empty (NULL) = not available                 |
 | `recipe_steps`         | Numbered steps, one per line (used when AI is off)        |
+| `options`              | Customer choices, e.g. protein and side; empty = none     |
+| `image`, `image_alt`   | Photo path (under `images/`) and its description          |
 
 > **Important:** the starting ingredients, allergens and recipes describe a
 > typical version of each dish from general knowledge, not your own recipes.
@@ -227,6 +234,26 @@ is built, so earlier edits can still be recovered from the backup.
 New dishes added to the database appear in the API and chatbot right away;
 add a matching card to `index.html` to show them on the page.
 
+## Dish photos
+
+The menu photos in `images/` are **stock photos from Wikimedia Commons**,
+used under CC BY-SA, CC BY or CC0 licences. They are placeholders until
+Cooking with Cookie has photos of its own food, so they don't show Cookie's
+own cooking. Author, licence and source for every photo are in
+[`images/CREDITS.md`](images/CREDITS.md), and the site footer links to that
+page (CC BY and CC BY-SA require visible credit).
+
+Each photo is a JPEG embedded in an `.svg` file because the tool used to
+publish this repository can only upload text files; browsers show it like a
+normal image. If a photo fails to load, the card falls back to
+`images/placeholder-dish.svg`.
+
+To use your own photos: save them in `images/` (about 800 px wide, JPEG or
+WebP, under 200 KB), update the `src` and `alt` of each card's `<img>` in
+`index.html` and the `image` / `image_alt` values in `backend/schema.sql`,
+and remove the matching rows from `images/CREDITS.md` (and the footer credit
+once no stock photos are left).
+
 ## API
 
 | Method | Path          | Body                                        | Response |
@@ -246,7 +273,8 @@ python -m pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The tests cover the 13-dish menu and its safety flags, the menu and quote
+The tests cover the 13-dish menu, its photos and safety flags, the removal
+of Dirty Rice, the grilled plate and its choices, the menu and quote
 APIs with prices on and off, chat input checks and rate limiting, the
 built-in replies (recipes, "likely, not verified" allergens, unavailable
 calories, contact details only for orders), the AI instructions with a fake
@@ -256,8 +284,8 @@ prices.
 ## Before going live
 
 - Finalize prices (and any labour costs in them), then turn on `SHOW_PRICES`.
-- Replace `images/placeholder-dish.svg` with real photos of your dishes and
-  update the `<img>` tags in `index.html`.
+- Replace the stock photos with real photos of your dishes (see
+  [Dish photos](#dish-photos)).
 - Check the ingredients, allergens and recipes for every dish against your
   own recipes, add calories, and mark them verified.
 - If the contact email or phone changes, update it in `index.html` (bulk
