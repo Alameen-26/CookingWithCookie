@@ -13,7 +13,7 @@ import app as cookie_app  # noqa: E402
 MENU_NAMES = [
     "Jollof Rice & Peppered Chicken", "Fried Rice", "Nigerian Shawarma",
     "Puff-Puff", "Meat Pie", "Jollof Spaghetti", "Beef Stir-fry Spaghetti",
-    "Dirty Rice", "Stew (Beef)", "Stew (Chicken)", "Stew (Fish)", "Egusi",
+    "Grilled Chicken, Meat or Fish", "Stew (Beef)", "Stew (Chicken)", "Stew (Fish)", "Egusi",
     "Beans Porridge",
 ]
 EMAIL = "alajiadeniyi@gmail.com"
@@ -96,12 +96,15 @@ def test_menu_fields_and_safety_flags(client):
         assert set(item) == {
             "id", "name", "description", "ingredients", "ingredients_verified",
             "calories", "allergens", "allergens_verified", "recipe_steps",
+            "options", "image", "image_alt",
         }
         assert item["calories"] is None
         assert item["ingredients_verified"] is False
         assert item["allergens_verified"] is False
         assert item["ingredients"] and item["allergens"] and item["description"]
         assert item["recipe_steps"].startswith("1. ")
+        assert item["image"].startswith("images/") and item["image"] != "images/placeholder-dish.svg"
+        assert len(item["image_alt"]) > 15
 
 
 def test_seed_allergens_follow_ingredients(client):
@@ -187,12 +190,82 @@ def test_show_prices_setting(monkeypatch, value, expected):
     assert cookie_app.env_flag("SHOW_PRICES") is expected
 
 
+def test_dirty_rice_removed_everywhere(client):
+    names = [item["name"] for item in client.get("/api/menu").get_json()]
+    assert "Dirty Rice" not in names
+    assert "Dirty Rice" not in cookie_app.SCHEMA_PATH.read_text(encoding="utf-8")
+    assert "Dirty Rice" not in client.get("/").get_data(as_text=True)
+    assert "Dirty Rice" not in reply(client, "What's on the menu?")
+
+
+def test_version_2_database_drops_dirty_rice(client):
+    db_path = Path(cookie_app.app.config["DATABASE"])
+    connection = sqlite3.connect(db_path)
+    connection.executescript(
+        """
+        PRAGMA user_version = 2;
+        CREATE TABLE menu_items (
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+            price REAL NOT NULL, available INTEGER NOT NULL DEFAULT 1,
+            ingredients TEXT, ingredients_verified INTEGER NOT NULL DEFAULT 0,
+            calories INTEGER, allergens TEXT,
+            allergens_verified INTEGER NOT NULL DEFAULT 0, recipe_steps TEXT
+        );
+        INSERT INTO menu_items (name, description, price) VALUES ('Dirty Rice', 'Old', 18.0);
+        """
+    )
+    connection.close()
+    names = [item["name"] for item in client.get("/api/menu").get_json()]
+    assert names == MENU_NAMES
+    assert db_path.with_name("test.v2-backup.db").exists()
+
+
+def test_grilled_plate_is_modelled_like_other_dishes(client):
+    menu = {item["name"]: item for item in client.get("/api/menu").get_json()}
+    grilled = menu["Grilled Chicken, Meat or Fish"]
+    assert "price" not in grilled
+    assert grilled["calories"] is None and grilled["allergens_verified"] is False
+    assert "Fish (fish option)" in grilled["allergens"]
+    for word in ("chicken", "beef", "fish", "sweet potatoes", "fries", "plantain"):
+        assert word in grilled["options"].lower()
+    for word in ("sweet potatoes", "fries", "plantain"):
+        assert word in grilled["recipe_steps"].lower()
+    price = {i["name"]: i["price"] for i in cookie_app.load_menu()}["Grilled Chicken, Meat or Fish"]
+    assert 15 <= price <= 25
+    assert all(item["options"] is None for name, item in menu.items() if name != grilled["name"])
+
+
+def test_fallback_teaches_grilled_plate(client):
+    text = reply(client, "How do I make grilled fish and plantain?")
+    assert "Here's a typical way to make Grilled Chicken, Meat or Fish" in text
+    assert "plantain" in text and "\n1. " in text
+    assert_no_contact(text)
+    about = reply(client, "Tell me about the grilled chicken")
+    assert "sweet potatoes, fries or fried plantain" in about
+    assert_no_price(about)
+    fish = reply(client, "Does the grilled fish have fish allergens?")
+    assert "Fish (fish option)" in fish and "cross-contamination" in fish
+
+
+def test_ai_prompt_includes_grilled_choices(client, monkeypatch):
+    fake = use_fake_ai(monkeypatch, FakeOpenAI(reply="Sure!"))
+    chat(client, "hello")
+    system = fake.calls[0]["messages"][0]["content"]
+    assert "## Grilled Chicken, Meat or Fish\n" in system
+    assert "Customer choices: Protein: chicken, meat (beef) or fish." in system
+    assert "Dirty Rice" not in system
+
+
 # ---------- Website ----------
 
 def test_site_files_are_served(client):
     assert client.get("/css/style.css").status_code == 200
     assert client.get("/js/script.js").status_code == 200
     assert client.get("/images/placeholder-dish.svg").status_code == 200
+    for item in cookie_app.load_menu():
+        response = client.get("/" + item["image"])
+        assert response.status_code == 200, item["image"]
+        assert b"data:image/jpeg;base64," in response.data
     assert client.get("/backend/app.py").status_code == 404
     assert client.get("/.env").status_code == 404
 
@@ -204,6 +277,17 @@ def test_site_shows_all_dishes_without_prices(client):
         assert f"<h3>{name.replace('&', '&amp;')}</h3>" in html
     assert not re.search(r"\$\s?\d", html)
     assert "data-price=" not in html
+    assert "placeholder-dish.svg\"" not in html.replace("this.src='images/placeholder-dish.svg'", "")
+    assert html.count("onerror=\"this.onerror=null; this.src='images/placeholder-dish.svg';\"") == 13
+    assert html.count('class="learn-button"') == 13
+    for item in cookie_app.load_menu():
+        assert f'src="{item["image"]}"' in html
+
+
+def test_site_has_photo_credits_link(client):
+    html = client.get("/").get_data(as_text=True)
+    assert "images/CREDITS.md" in html and "Photo credits" in html
+    assert (cookie_app.PROJECT_ROOT / "images" / "CREDITS.md").exists()
     assert not re.search(r"\$\s?\d", client.get("/js/script.js").get_data(as_text=True))
 
 
@@ -325,7 +409,7 @@ def test_fallback_allergen_not_listed_is_still_unverified(client):
 
 def test_fallback_which_dishes_contain_allergen(client):
     text = reply(client, "Which dishes have fish?")
-    assert "likely or possibly contain fish: Dirty Rice, Stew (Fish), Egusi." in text
+    assert "likely or possibly contain fish: Grilled Chicken, Meat or Fish, Stew (Fish), Egusi." in text
 
 
 def test_fallback_allergen_question_without_dish(client):
@@ -407,7 +491,10 @@ def test_fallback_states_prices_when_enabled(priced_client):
     [("beef stew", ["Stew (Beef)"]), ("fried rice", ["Fried Rice"]),
      ("chicken stew", ["Stew (Chicken)"]), ("puff-puff", ["Puff-Puff"]),
      ("spaghetti", ["Jollof Spaghetti", "Beef Stir-fry Spaghetti"]),
-     ("the stews", ["Stew (Beef)", "Stew (Chicken)", "Stew (Fish)"])],
+     ("the stews", ["Stew (Beef)", "Stew (Chicken)", "Stew (Fish)"]),
+     ("grilled chicken", ["Grilled Chicken, Meat or Fish"]),
+     ("grilled fish with plantain", ["Grilled Chicken, Meat or Fish"]),
+     ("meat pie", ["Meat Pie"]), ("fish stew", ["Stew (Fish)"])],
 )
 def test_dish_matching(client, question, expected):
     names = [i["name"] for i in cookie_app.find_items(question, cookie_app.load_menu())]

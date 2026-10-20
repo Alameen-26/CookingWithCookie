@@ -29,7 +29,7 @@ MAX_MESSAGE_LENGTH = 500
 MAX_QUANTITY = 100
 DEFAULT_MODEL = "gpt-6-luna"
 # Bump this (and PRAGMA user_version in schema.sql) when the seed menu changes.
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Business contact details. The chatbot only gives these out for placing
 # pickup orders and bulk/event orders.
@@ -110,7 +110,7 @@ def init_db():
 
 MENU_COLUMNS = (
     "id, name, description, price, ingredients, ingredients_verified, "
-    "calories, allergens, allergens_verified, recipe_steps"
+    "calories, allergens, allergens_verified, recipe_steps, options, image, image_alt"
 )
 
 
@@ -246,7 +246,11 @@ LOCATION_PATTERN = re.compile(
     r"nova scotia|address|near)\b"
 )
 BULK_PATTERN = re.compile(r"\b(bulk|party|parties|event\w*|cater\w*|crowd|wedding\w*|groups?|people)\b")
-STOP_WORDS = {"and", "nigerian"}
+STOP_WORDS = {"and", "or", "nigerian"}
+# Extra words customers use for a dish that aren't in its name.
+DISH_ALIASES = {
+    "Grilled Chicken, Meat or Fish": {"grill", "plantain", "dodo", "fries", "chips", "suya"},
+}
 
 
 def normalize(text):
@@ -254,7 +258,8 @@ def normalize(text):
 
 
 def name_tokens(item):
-    return {w for w in normalize(item["name"]).split() if w not in STOP_WORDS}
+    words = {w for w in normalize(item["name"]).split() if w not in STOP_WORDS}
+    return words | DISH_ALIASES.get(item["name"], set())
 
 
 def match_items(text, menu):
@@ -317,6 +322,10 @@ def calorie_line(item):
 def ingredient_line(item):
     note = "" if item.get("ingredients_verified") else " (typical recipe; Cookie's version may vary)"
     return f"{item['name']} is usually made with{note}: {item['ingredients'] or item['description']}."
+
+
+def options_text(item):
+    return f" Choices: {item['options']}" if item.get("options") else ""
 
 
 def recipe_text(item):
@@ -427,10 +436,10 @@ def fallback_reply(message, menu):
     if items:
         if prices_enabled():
             return " ".join(
-                f"Our {item['name']} is {format_price(item['price'])}: {item['description']}"
+                f"Our {item['name']} is {format_price(item['price'])}: {item['description']}{options_text(item)}"
                 for item in items
             )
-        return " ".join(f"{item['name']}: {item['description']}" for item in items)
+        return " ".join(f"{item['name']}: {item['description']}{options_text(item)}" for item in items)
 
     if PRICE_PATTERN.search(text) or re.search(r"\b(menu|options|eat|dishes|serve)\b", text):
         if prices_enabled():
@@ -460,9 +469,11 @@ def build_system_prompt(menu):
         calories = item["calories"] if item["calories"] is not None else "NOT AVAILABLE"
         ingredients_note = "verified" if item["ingredients_verified"] else "typical recipe, not verified"
         allergens_note = "verified" if item["allergens_verified"] else "likely, based on typical recipe, not verified"
+        options = f"Customer choices: {item['options']}\n" if item.get("options") else ""
         blocks.append(
             f"## {item['name']}\n{price}"
             f"Description: {item['description']}\n"
+            f"{options}"
             f"Ingredients ({ingredients_note}): {item['ingredients'] or 'NOT AVAILABLE'}\n"
             f"Allergens ({allergens_note}): {item['allergens'] or 'NOT AVAILABLE'}\n"
             f"Calories per serving: {calories}\n"

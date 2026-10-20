@@ -1,11 +1,13 @@
--- Cooking with Cookie menu database (schema version 2).
+-- Cooking with Cookie menu database (schema version 3).
 --
 -- ingredients, allergens and recipe_steps come from TYPICAL recipes for each
 -- dish, not from Cooking with Cookie's own recipes. They are marked as
 -- unverified (ingredients_verified = 0, allergens_verified = 0) until the
 -- owner checks them. calories is NULL (unknown) until the owner adds it.
 -- Prices are prototype placeholders and stay hidden while SHOW_PRICES is off.
-PRAGMA user_version = 2;
+-- Photos (image, image_alt) are openly licensed stock photos for now; see
+-- images/CREDITS.md. Replace them with Cookie's own photos later.
+PRAGMA user_version = 3;
 CREATE TABLE IF NOT EXISTS menu_items (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -17,7 +19,10 @@ CREATE TABLE IF NOT EXISTS menu_items (
     calories INTEGER,                                   -- per serving, NULL = unknown
     allergens TEXT,                                     -- comma-separated
     allergens_verified INTEGER NOT NULL DEFAULT 0,      -- 0 = likely, not verified
-    recipe_steps TEXT                                   -- one step per line
+    recipe_steps TEXT,                                  -- one step per line
+    options TEXT,                                       -- customer choices, NULL = none
+    image TEXT,                                         -- path under images/
+    image_alt TEXT                                      -- photo description
 );
 INSERT INTO menu_items (name, description, price, ingredients, allergens, recipe_steps)
 VALUES (
@@ -113,18 +118,21 @@ VALUES (
 4. Stir-fry sliced onions, bell peppers and carrots for 2-3 minutes so they stay crunchy.
 5. Return the beef, add the spaghetti and toss everything with soy sauce and seasoning until hot.'
 );
-INSERT INTO menu_items (name, description, price, ingredients, allergens, recipe_steps)
+INSERT INTO menu_items (name, description, price, ingredients, allergens, recipe_steps, options)
 VALUES (
-    'Dirty Rice',
-    'Rustic native-style rice cooked in palm oil with peppers, crayfish and smoked fish.',
-    18.00,
-    'Long-grain rice, palm oil, onions, scotch bonnet peppers, ground crayfish, locust beans (iru), smoked fish, stock cubes, leafy greens',
-    'Crustaceans (crayfish), Fish (smoked fish), Wheat, Soy (possible, from stock cubes)',
-    '1. Heat the palm oil gently (don''t let it smoke) and fry chopped onions.
-2. Add blended or chopped scotch bonnet, locust beans (iru) and ground crayfish and fry for a few minutes.
-3. Add stock, stock cubes and flaked smoked fish, and bring to a boil.
-4. Stir in washed rice, cover and cook on low heat until tender.
-5. Fold in chopped leafy greens at the end and let them wilt before serving.'
+    'Grilled Chicken, Meat or Fish',
+    'Your choice of grilled chicken, meat (beef) or fish, served with sweet potatoes, fries or fried plantain.',
+    22.00,
+    'Chicken, beef or whole fish (such as tilapia or croaker), onions, garlic, ginger, scotch bonnet peppers, vegetable oil, stock cubes, curry powder, dried thyme, paprika, suya spice (yaji); side: sweet potatoes, potatoes for fries, or ripe plantain, vegetable oil for frying, salt',
+    'Fish (fish option), Wheat, Soy (possible, from stock cubes), Peanuts (possible, if suya spice is used)',
+    '1. Blend onion, garlic, ginger, scotch bonnet and a little oil, then mix in curry, thyme, paprika, crushed stock cubes and salt to make the marinade.
+2. Score the chicken, beef or fish, rub the marinade in well and leave it for at least 1 hour (overnight for chicken and beef).
+3. Grill over medium-high heat or under the oven grill, turning and brushing with oil, until cooked through: chicken 25-35 minutes (juices run clear), beef strips or chunks 8-12 minutes, whole fish 15-20 minutes. Sprinkle suya spice on near the end if you like.
+4. Side - sweet potatoes: peel, cut into wedges, toss in oil and salt and roast at 220°C (425°F) for 25-30 minutes, or boil until tender.
+5. Side - fries: cut potatoes into sticks, soak in cold water, dry well, then fry at 160°C (325°F) until soft and again at 190°C (375°F) until golden.
+6. Side - plantain (dodo): slice ripe plantain on the diagonal and fry in hot oil for 2-3 minutes per side until golden brown.
+7. Serve the grilled protein with your chosen side, sliced onions and a pepper sauce.',
+    'Protein: chicken, meat (beef) or fish. Side: sweet potatoes, fries or fried plantain (dodo).'
 );
 INSERT INTO menu_items (name, description, price, ingredients, allergens, recipe_steps)
 VALUES (
@@ -191,3 +199,18 @@ VALUES (
 4. Optional: add diced ripe plantain for the last 10 minutes.
 5. Adjust the salt and serve.'
 );
+
+-- Dish photos (stock photos for now, credits in images/CREDITS.md).
+UPDATE menu_items SET image = 'images/jollof-rice-peppered-chicken.svg', image_alt = 'Two moulded mounds of orange-red jollof rice with a piece of fried chicken on a white plate' WHERE name = 'Jollof Rice & Peppered Chicken';
+UPDATE menu_items SET image = 'images/fried-rice.svg', image_alt = 'Nigerian fried rice with carrots, peas and sweet corn, topped with browned chicken in a pan' WHERE name = 'Fried Rice';
+UPDATE menu_items SET image = 'images/nigerian-shawarma.svg', image_alt = 'Grilled shawarma wraps with char marks on a plate' WHERE name = 'Nigerian Shawarma';
+UPDATE menu_items SET image = 'images/puff-puff.svg', image_alt = 'A plate of golden-brown fried puff-puff dough balls' WHERE name = 'Puff-Puff';
+UPDATE menu_items SET image = 'images/meat-pie.svg', image_alt = 'Golden Nigerian meat pies with crimped edges on a baking tray' WHERE name = 'Meat Pie';
+UPDATE menu_items SET image = 'images/jollof-spaghetti.svg', image_alt = 'A plate of spaghetti cooked in orange jollof tomato sauce' WHERE name = 'Jollof Spaghetti';
+UPDATE menu_items SET image = 'images/beef-stir-fry-spaghetti.svg', image_alt = 'Stir-fried noodles with beef strips, broccoli, carrots and red peppers' WHERE name = 'Beef Stir-fry Spaghetti';
+UPDATE menu_items SET image = 'images/grilled-plate.svg', image_alt = 'A platter of grilled fish with roasted plantain, fried plantain cubes, onions and pepper sauce' WHERE name = 'Grilled Chicken, Meat or Fish';
+UPDATE menu_items SET image = 'images/stew-beef.svg', image_alt = 'White rice topped with red tomato and pepper stew, beef and fried plantain in a bowl' WHERE name = 'Stew (Beef)';
+UPDATE menu_items SET image = 'images/stew-chicken.svg', image_alt = 'White rice with red Nigerian tomato stew and chicken pieces' WHERE name = 'Stew (Chicken)';
+UPDATE menu_items SET image = 'images/stew-fish.svg', image_alt = 'Fish pieces simmering in a red tomato stew in a pan' WHERE name = 'Stew (Fish)';
+UPDATE menu_items SET image = 'images/egusi.svg', image_alt = 'A pot of egusi soup with ground melon seeds and leafy greens' WHERE name = 'Egusi';
+UPDATE menu_items SET image = 'images/beans-porridge.svg', image_alt = 'Beans porridge on a blue plate surrounded by slices of fried plantain' WHERE name = 'Beans Porridge';
