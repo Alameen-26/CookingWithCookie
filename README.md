@@ -29,6 +29,13 @@ food and its likely allergens, and shares recipes and cooking tips.
   Cookie for recipes,
   with an optional email link for in-person lesson enquiries.
 - **Ask Cookie chatbot:**
+  - friendly, conversational tone: short answers, follow-up questions, and
+    it remembers the last few messages, so "how long do I fry it?" works;
+  - optional web search grounds general cooking, recipe and nutrition
+    answers in online sources and shows the links it used (facts about the
+    shop itself always come from the database);
+  - chat window with a typing indicator, quick-reply suggestion chips, safe
+    links and simple formatting, a Sources list and friendly error messages;
   - answers questions about the menu, ingredients and likely allergens;
   - answers cooking questions itself: recipes, step-by-step instructions,
     tips and substitutions for the menu dishes and Nigerian cooking in
@@ -41,7 +48,9 @@ food and its likely allergens, and shares recipes and cooking tips.
     orders, and mentions the Halifax service area for location questions;
   - uses an AI model when an API key is set. Without a key (or if the AI
     service fails) it uses built-in replies from the database, including a
-    short typical recipe for every dish;
+    short typical recipe for every dish. These replies vary their wording,
+    handle greetings, thanks and small talk, forgive typos in dish names
+    ("jolof", "egusy", "shwarma") and suggest related questions;
   - limited to 10 messages per visitor per minute to protect AI costs.
 - **Prices switch (`SHOW_PRICES`):** off by default. When off, no prices
   appear on the site, in the API or in chatbot replies, which say pricing is
@@ -70,6 +79,7 @@ CookingWithCookie/
 ├── images/             # Dish photos, CREDITS.md and placeholder-dish.svg
 ├── backend/
 │   ├── app.py          # Flask app: website, JSON API, chatbot, pricing
+│   ├── search.py       # Optional web search (Tavily or Brave)
 │   └── schema.sql      # Database table and the 13-dish starter menu
 ├── tests/test_app.py   # Backend tests
 ├── .env.example        # Copy to .env for settings (AI key, prices)
@@ -87,7 +97,9 @@ Browser (index.html + script.js)
    ▼
 Flask (backend/app.py) ──► SQLite (backend/cookie.db, built from schema.sql)
    │
-   └──► AI model (optional, only when OPENAI_API_KEY is set)
+   ├──► AI model (optional, only when OPENAI_API_KEY is set)
+   └──► Web search (optional, backend/search.py, only when SEARCH_API_KEY is
+        also set, and only for general cooking questions)
 ```
 
 - Flask serves the website and the API from one address,
@@ -98,8 +110,38 @@ Flask (backend/app.py) ──► SQLite (backend/cookie.db, built from schema.sq
   menu (names, descriptions, ingredients, allergens, calories, typical recipe
   steps, whether each value is verified and, only if enabled, prices). The
   AI key never leaves the server.
+- The browser keeps the conversation in memory and sends the last 10
+  messages (each cut to 1,000 characters) with every question, so Cookie
+  understands follow-ups. Nothing is stored on the server.
 - If the page is opened directly as a file (without Flask), it still works
   with simple built-in chat replies and no prices.
+
+### How a chat message is answered
+
+1. `/api/chat` checks the message (1 to 500 characters), the rate limit and
+   the `history` list.
+2. If AI is on, web search is on, and the question is a general cooking,
+   recipe or nutrition question (for example "How long do I fry plantain?"),
+   the server searches the web (`backend/search.py`) and keeps the top 3
+   results. Questions about the shop are never searched: allergens, prices,
+   ordering, pickup, events, and the calories or ingredients of Cookie's own
+   dishes. If search is slow (over `SEARCH_TIMEOUT_SECONDS`) or fails, the
+   question is answered without it.
+3. The AI gets the system prompt (personality, the live menu and the safety
+   rules), the web results marked as untrusted text, the recent
+   conversation and the new question.
+4. The server checks the reply: links that weren't in the web results become
+   plain text, cited results are returned as `sources`, prices are blocked
+   while they are hidden, and the allergy note is added when allergies come up.
+5. Without AI (or if it fails), the rule-based replies answer from the
+   database instead.
+6. Either way, the reply includes up to 3 suggested follow-up questions,
+   shown as quick-reply chips.
+
+Safety rules that always apply: allergens are "likely, based on a typical
+recipe, not verified" with a cross-contamination note; calories are never
+guessed; prices say "coming soon" while hidden; pickup only in the Halifax
+area; contact details only for placing orders.
 
 ## Setup
 
@@ -144,6 +186,9 @@ macOS/Linux: `cp .env.example .env`), edit it, and restart the app.
 | `OPENAI_BASE_URL`            | (empty)      | Use another OpenAI-compatible provider            |
 | `CONTACT_EMAIL`              | `alajiadeniyi@gmail.com` | Email the chatbot gives for orders    |
 | `CONTACT_PHONE`              | `(902) 495-1781` | Phone the chatbot gives for orders        |
+| `SEARCH_API_KEY`             | (empty)      | Turns on web search for general cooking questions (needs AI on) |
+| `SEARCH_PROVIDER`            | `tavily`     | `tavily` or `brave`                               |
+| `SEARCH_TIMEOUT_SECONDS`     | `6`          | Answer without web results if search is slower    |
 | `CHAT_RATE_LIMIT_PER_MINUTE` | `10`         | Chat messages allowed per visitor per minute      |
 | `FLASK_DEBUG`                | `0`          | `1` for auto-reload and detailed errors (local only) |
 
@@ -162,6 +207,35 @@ Chat replies now come from the AI, including full recipes, tips and
 substitutions for any Nigerian dish. The API's response shows
 `"source": "ai"` (or `"fallback"` for built-in replies). Never put your key in
 `index.html` or `script.js`.
+
+## Turning on web search (optional)
+
+Web search lets Ask Cookie base general cooking answers on current online
+sources and list the links it used under the reply. It only works when AI
+chat is on.
+
+1. Get a search API key:
+   - **Tavily** (default): sign up at <https://tavily.com> and copy the key
+     from the dashboard. The free plan has 1,000 searches a month with no
+     credit card.
+   - **Brave Search API**: sign up at <https://brave.com/search/api/>. It
+     needs a credit card, and includes $5 of free credit a month (about
+     1,000 searches). Brave asks you to credit the Brave Search API on your
+     site to use the free credit.
+2. In `.env`, set `SEARCH_API_KEY=your-key` and `SEARCH_PROVIDER=tavily` (or
+   `brave`).
+3. Restart the app and ask "How long do I fry plantain?". The JSON reply
+   from `/api/chat` has a `sources` list, and the chat window shows the
+   links under the answer.
+
+**Costs:** each searched question uses one search plus one AI request, and
+the conversation history makes AI requests a bit larger. Only general
+cooking questions are searched, and the 10-messages-per-minute limit applies
+to everything. Check your provider's current prices and set spending limits
+in its dashboard.
+
+To add another provider, write a function in `backend/search.py` that
+returns `[{"title", "url", "snippet"}, ...]` and add it to `PROVIDERS`.
 
 ## Turning prices on
 
@@ -260,7 +334,7 @@ once no stock photos are left).
 | ------ | ------------- | ------------------------------------------- | -------- |
 | GET    | `/api/health` |                                             | `{"status": "ok"}` |
 | GET    | `/api/menu`   |                                             | Available items (with `price` only if prices are on) |
-| POST   | `/api/chat`   | `{"message": "..."}` (1 to 500 characters)  | `{"reply": "...", "source": "ai" or "fallback"}` |
+| POST   | `/api/chat`   | `{"message": "...", "history": [{"role": "user" or "assistant", "content": "..."}]}` (message 1 to 500 characters; history optional, last 10 kept) | `{"reply": "...", "source": "ai" or "fallback", "sources": [{"title", "url"}], "suggestions": ["..."]}` |
 | POST   | `/api/quote`  | `{"items": [{"id": 1, "quantity": 2}]}`     | Line totals and `total` in CAD; `403` while prices are off |
 
 Errors are JSON: `400` for bad input, `403` for pricing while prices are
@@ -279,7 +353,13 @@ APIs with prices on and off, chat input checks and rate limiting, the
 built-in replies (recipes, "likely, not verified" allergens, unavailable
 calories, contact details only for orders), the AI instructions with a fake
 AI client, database upgrades with backups, and that the website contains no
-prices.
+prices. They also cover conversation history, follow-up questions, typo-
+tolerant dish matching, small talk, suggestions, and web search with a fake
+search provider (when to search, sources, made-up links removed, timeouts
+and errors). The tests never use the network or a real API key.
+
+To try the chatbot by hand without any keys, run the app and ask "hi",
+"tell me about the jolof", then "how do I make it?".
 
 ## Before going live
 
