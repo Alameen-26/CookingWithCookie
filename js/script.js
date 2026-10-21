@@ -98,27 +98,148 @@ document.querySelectorAll(".learn-button").forEach(function (button) {
     });
 });
 // PART 2: ASK COOKIE CHAT ASSISTANT
-// Messages go to the backend (/api/chat), which answers with AI or with
-// its own rule-based replies. If the backend can't be reached (for example,
-// the page was opened directly as a file), the local replies below are used.
+// Messages go to the backend (/api/chat) together with the last few messages
+// of the conversation, so Cookie understands follow-ups like "how long do I
+// fry it?". The backend answers with AI (optionally grounded with web search
+// results) or with its own rule-based replies. If the backend can't be
+// reached (for example, the page was opened directly as a file), the short
+// local replies below are used.
 const chatForm = document.querySelector("#chat-form");
 const chatInput = document.querySelector("#chat-input");
 const chatMessages = document.querySelector("#chat-messages");
 const chatButton = chatForm.querySelector("button");
+const chatSuggestions = document.querySelector("#chat-suggestions");
 const ORDER_CONTACT = "email alajiadeniyi@gmail.com or call (902) 495-1781";
 const PRICING_SOON = "Pricing is coming soon.";
 const ALLERGY_NOTE =
     "Allergen information is based on typical recipes and hasn't been verified, and cross-contamination is possible in our kitchen. If you have a severe allergy, please be very cautious.";
-function addMessage(message, sender) {
-    const paragraph = document.createElement("p");
-    paragraph.className =
-        sender === "user" ? "user-message" : "bot-message";
-    // textContent displays text without interpreting it as HTML.
-    paragraph.textContent = message;
-    chatMessages.appendChild(paragraph);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-    return paragraph;
+// Conversation memory, kept only in this browser tab.
+const MAX_HISTORY = 10; // messages sent with each question (about 5 turns)
+const MAX_HISTORY_LENGTH = 1000; // characters per remembered message
+const chatHistory = [];
+function remember(role, content) {
+    chatHistory.push({ role: role, content: content.slice(0, MAX_HISTORY_LENGTH) });
+    while (chatHistory.length > MAX_HISTORY) {
+        chatHistory.shift();
+    }
 }
+// ---- Safe formatting ----
+// Replies may contain simple markdown: **bold**, [links](https://...) and
+// line breaks. Everything is HTML-escaped FIRST, so any HTML or script in a
+// reply is shown as plain text and never runs (no XSS). Only http(s) links
+// are turned into <a> tags.
+function escapeHtml(text) {
+    return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+function isSafeUrl(url) {
+    return /^https?:\/\/[^\s]+$/i.test(url);
+}
+function renderMarkdown(text) {
+    let html = escapeHtml(text);
+    html = html.replace(
+        /\[([^\]\n]{1,200})\]\((https?:\/\/[^\s)]+)\)/g,
+        function (match, label, url) {
+            return '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + label + "</a>";
+        }
+    );
+    html = html.replace(
+        /(^|[\s(])(https?:\/\/[^\s<)]+)/g,
+        function (match, before, url) {
+            return before + '<a href="' + url + '" target="_blank" rel="noopener noreferrer">' + url + "</a>";
+        }
+    );
+    html = html.replace(/\*\*([^*\n]+)\*\*/g, function (match, words) {
+        return "<strong>" + words + "</strong>";
+    });
+    return html.replace(/\n/g, "<br>");
+}
+// ---- Chat window ----
+function scrollToLatest() {
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+function addSources(container, sources) {
+    const safe = (sources || []).filter(function (source) {
+        return source && typeof source.url === "string" && isSafeUrl(source.url);
+    });
+    if (safe.length === 0) {
+        return;
+    }
+    const box = document.createElement("div");
+    box.className = "sources";
+    const heading = document.createElement("p");
+    heading.textContent = "Sources";
+    box.appendChild(heading);
+    const list = document.createElement("ul");
+    safe.slice(0, 3).forEach(function (source) {
+        const item = document.createElement("li");
+        const link = document.createElement("a");
+        link.href = source.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = source.title || source.url;
+        item.appendChild(link);
+        list.appendChild(item);
+    });
+    box.appendChild(list);
+    container.appendChild(box);
+}
+function addMessage(message, sender, options) {
+    const settings = options || {};
+    const bubble = document.createElement("div");
+    bubble.className = sender === "user" ? "user-message" : "bot-message";
+    if (settings.error) {
+        bubble.classList.add("error-message");
+    }
+    const body = document.createElement("p");
+    if (sender === "user") {
+        // The customer's own text is always shown exactly as typed.
+        body.textContent = message;
+    } else {
+        body.innerHTML = renderMarkdown(message);
+    }
+    bubble.appendChild(body);
+    if (sender !== "user") {
+        addSources(bubble, settings.sources);
+    }
+    chatMessages.appendChild(bubble);
+    scrollToLatest();
+    return bubble;
+}
+function showTyping() {
+    const typing = document.createElement("div");
+    typing.className = "bot-message typing";
+    typing.setAttribute("aria-label", "Cookie is typing");
+    for (let i = 0; i < 3; i += 1) {
+        typing.appendChild(document.createElement("span"));
+    }
+    chatMessages.appendChild(typing);
+    scrollToLatest();
+    return typing;
+}
+function showSuggestions(suggestions) {
+    chatSuggestions.replaceChildren();
+    (suggestions || []).slice(0, 3).forEach(function (text) {
+        if (typeof text !== "string" || text.trim() === "") {
+            return;
+        }
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "chip";
+        chip.textContent = text;
+        chatSuggestions.appendChild(chip);
+    });
+}
+chatSuggestions.addEventListener("click", function (event) {
+    const chip = event.target.closest(".chip");
+    if (chip) {
+        sendMessage(chip.textContent.trim());
+    }
+});
 // Simple replies used only when the server can't be reached.
 function getCookieReply(message) {
     const text = message.toLowerCase();
@@ -149,47 +270,63 @@ function getCookieReply(message) {
     }
     return "Browse our menu above, or ask me about a dish, its ingredients or how to make it.";
 }
-async function askServer(message) {
+async function askServer(message, history) {
     if (!window.location.protocol.startsWith("http")) {
-        return getCookieReply(message);
+        return { reply: getCookieReply(message), local: true };
     }
     try {
         const response = await fetch("/api/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: message })
+            body: JSON.stringify({ message: message, history: history })
         });
         const data = await response.json();
         if (response.ok && typeof data.reply === "string") {
-            return data.reply;
+            return data;
         }
         // Rate limit or validation message from the server.
         if ((response.status === 429 || response.status === 400) && data.error) {
-            return data.error;
+            return { reply: data.error, error: true };
         }
+        return {
+            reply: "Sorry, something went wrong on my side. Please try again in a moment.",
+            error: true
+        };
     } catch (error) {
         console.info("Chat server unavailable, using local replies.", error);
+        return { reply: getCookieReply(message), local: true };
     }
-    return getCookieReply(message);
 }
 function setWaiting(isWaiting) {
     chatButton.disabled = isWaiting;
     chatButton.textContent = isWaiting ? "Sending…" : "Send";
+    chatSuggestions.querySelectorAll(".chip").forEach(function (chip) {
+        chip.disabled = isWaiting;
+    });
 }
-chatForm.addEventListener("submit", async function (event) {
-    event.preventDefault();
-    const message = chatInput.value.trim();
+async function sendMessage(message) {
     if (message === "" || chatButton.disabled) {
         return;
     }
+    const history = chatHistory.slice();
     addMessage(message, "user");
     chatInput.value = "";
     setWaiting(true);
-    const typing = addMessage("Cookie is typing…", "bot");
-    typing.classList.add("typing");
-    const reply = await askServer(message);
+    const typing = showTyping();
+    const result = await askServer(message, history);
     typing.remove();
-    addMessage(reply, "bot");
+    addMessage(result.reply, "bot", { sources: result.sources, error: result.error });
+    if (!result.error) {
+        remember("user", message);
+        remember("assistant", result.reply);
+    }
+    if (Array.isArray(result.suggestions)) {
+        showSuggestions(result.suggestions);
+    }
     setWaiting(false);
-    chatInput.focus();
+    chatInput.focus({ preventScroll: true });
+}
+chatForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    sendMessage(chatInput.value.trim());
 });
