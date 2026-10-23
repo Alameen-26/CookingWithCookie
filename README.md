@@ -13,6 +13,82 @@ food and its likely allergens, and shares recipes and cooking tips.
 > filled in yet. Dish photos are openly licensed stock photos (see
 > [Dish photos](#dish-photos)) until Cookie's own photos are ready.
 
+## Quick start (Windows PowerShell)
+
+**You need:** [Git](https://git-scm.com/download/win) and
+[Python 3.10 or newer](https://www.python.org/downloads/) (tick "Add
+python.exe to PATH" in the installer). Open **PowerShell** and paste one block
+at a time.
+
+**1. Download and install**
+
+```powershell
+git clone https://github.com/Alameen-26/CookingWithCookie.git
+cd CookingWithCookie
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+```
+
+`requirements-dev.txt` installs the app (Flask, OpenAI SDK, python-dotenv)
+plus pytest for the tests. If you only want to run the site, use
+`requirements.txt` instead. If PowerShell says running scripts is disabled,
+run `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` once and activate
+again.
+
+**2. Settings (optional)**
+
+```powershell
+Copy-Item .env.example .env
+notepad .env
+```
+
+The site works with no keys at all: Ask Cookie then uses its built-in,
+rule-based replies from the menu database. To turn on AI and web search, fill in:
+
+| Setting                  | What to put                                                     |
+| ------------------------ | --------------------------------------------------------------- |
+| `OPENAI_API_KEY`         | Your AI key; turns on AI chat replies                           |
+| `OPENAI_MODEL`           | A model your provider offers (set this; the built-in default may not exist) |
+| `OPENAI_BASE_URL`        | Only for a non-OpenAI, OpenAI-compatible provider               |
+| `SEARCH_PROVIDER`        | `tavily` (default) or `brave`                                   |
+| `SEARCH_API_KEY`         | Search key; turns on web sources for general cooking questions (needs AI on) |
+| `SEARCH_TIMEOUT_SECONDS` | Seconds to wait for search before answering without it (default 6) |
+
+More settings (prices, contact details, rate limit) are in
+[Settings](#settings-env). Never put keys in `index.html` or `script.js`.
+
+**3. Start the website**
+
+```powershell
+python backend/app.py
+```
+
+Open <http://127.0.0.1:5000> in your browser. Press `Ctrl+C` in PowerShell
+to stop the server. After changing `.env`, stop and start it again. Next time,
+just `cd CookingWithCookie`, run `.\.venv\Scripts\Activate.ps1`, then
+`python backend/app.py`.
+
+**4. Run the tests**
+
+```powershell
+python -m pytest -q
+```
+
+You should see 150 tests pass. They never use the network or a real key.
+
+### How customers use the site
+
+1. **Browse the menu:** 13 Nigerian dishes, each with a photo, a short
+   description and a quantity picker. For the grilled plate, choose chicken,
+   meat (beef) or fish, with sweet potatoes, fries or fried plantain.
+2. **Place an order:** the order summary counts the items picked; customers
+   then order by the email or tap-to-call links. Orders are **pickup only**
+   in the Halifax area, and bulk/event orders use the same contacts.
+3. **Ask Cookie:** open the chat to ask about dishes, ingredients, likely
+   allergens, recipes and cooking tips, or tap "Learn to make it" on any dish
+   card to get its recipe.
+
 ## Features
 
 - **Menu** of 13 Nigerian dishes (Jollof Rice & Peppered Chicken, Fried Rice,
@@ -143,26 +219,9 @@ recipe, not verified" with a cross-contamination note; calories are never
 guessed; prices say "coming soon" while hidden; pickup only in the Halifax
 area; contact details only for placing orders.
 
-## Setup
+## Setup on macOS / Linux
 
-You need Python 3.10 or newer.
-
-### Windows (PowerShell)
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python backend/app.py
-```
-
-If PowerShell says running scripts is disabled, run this once and try again:
-
-```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
-```
-
-### macOS / Linux
+Windows users: see [Quick start](#quick-start-windows-powershell).
 
 ```bash
 python3 -m venv .venv
@@ -173,7 +232,7 @@ python backend/app.py
 
 Then open <http://127.0.0.1:5000>.
 
-### Settings (`.env`)
+## Settings (`.env`)
 
 Copy `.env.example` to `.env` (PowerShell: `Copy-Item .env.example .env`,
 macOS/Linux: `cp .env.example .env`), edit it, and restart the app.
